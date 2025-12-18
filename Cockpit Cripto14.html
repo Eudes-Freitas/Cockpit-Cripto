@@ -1,0 +1,2173 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cockpit Cripto</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <!-- Bibliotecas para exportação -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0f172a;   /* Azul muito escuro (Slate 900) */
+            --bg-secondary: #1e293b; /* Azul escuro (Slate 800) */
+            --border-color: #334155; /* Slate 700 */
+            --text-primary: #f1f5f9; /* Slate 100 */
+            --text-secondary: #94a3b8; /* Slate 400 */
+            --accent: #f59e0b; /* Amber 500 */
+            --accent-hover: #d97706; /* Amber 600 */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+        }
+        .font-mono-report {
+            font-family: 'Roboto Mono', monospace;
+        }
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #4b5563;
+        }
+
+        .tab-btn {
+            transition: all 0.2s ease-in-out;
+            border-radius: 6px;
+        }
+        .tab-active {
+            background-color: var(--accent) !important;
+            color: #0f172a !important; /* Cor escura para contraste no amarelo */
+            font-weight: 600;
+        }
+        
+        input, select {
+            background-color: var(--bg-primary);
+            border-color: var(--border-color);
+            color: var(--text-primary);
+        }
+        input:disabled {
+            background-color: #0f172a; /* Mesmo do fundo */
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        /* Checkbox customizado com cor de destaque */
+        input[type="checkbox"] {
+            appearance: none;
+            background-color: transparent;
+            width: 1.25rem;
+            height: 1.25rem;
+            border: 2px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        input[type="checkbox"]:checked {
+            border-color: var(--accent);
+            background-color: var(--accent);
+        }
+        input[type="checkbox"]:checked::after {
+            content: '✓';
+            font-size: 0.8rem;
+            color: #0f172a;
+            font-weight: bold;
+        }
+
+        .spinner {
+            border: 2px solid rgba(255, 255, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            width: 20px;
+            height: 20px;
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        #toast-notification {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translate(-50%, 150%);
+            transition: transform 0.3s ease-in-out;
+            z-index: 100;
+        }
+        #toast-notification.show {
+            transform: translate(-50%, 0);
+        }
+        /* Ícone de calendário branco */
+        input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
+        .report-change-highlight {
+            background-color: rgba(245, 158, 11, 0.15); 
+            color: #fbbf24; 
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 16px;
+            font-size: 0.9rem;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+        /* Estilos para destaques nos relatórios */
+        .highlight-value {
+            color: var(--accent);
+            font-weight: bold;
+        }
+        .highlight-label {
+            color: #94a3b8;
+            font-weight: 500;
+            text-transform: uppercase;
+            font-size: 0.75rem;
+            letter-spacing: 0.05em;
+        }
+        .report-section {
+            background-color: rgba(30, 41, 59, 0.5);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 16px;
+            margin-bottom: 16px;
+        }
+        .report-section h3 {
+            color: #f1f5f9;
+            font-weight: 600;
+            margin-bottom: 8px;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 4px;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200">
+
+    <div class="container mx-auto p-4 md:p-8">
+        <header class="mb-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                 <div class="flex flex-col text-center md:text-left">
+                    <h1 class="text-3xl font-bold text-amber-500">Cockpit Cripto</h1>
+                    <p class="text-sm text-text-secondary">Gestão inteligente de criptoativos.</p>
+                 </div>
+                 <nav class="flex flex-wrap justify-center items-center gap-2 bg-bg-secondary p-1.5 rounded-lg border border-border-color">
+                    <button data-tab="lancamentos" id="tab-lancamentos" class="tab-btn px-4 py-2 text-sm tab-active">Transações</button>
+                    <button data-tab="dashboard" id="tab-dashboard" class="tab-btn px-4 py-2 text-sm">Dashboard</button>
+                    <button data-tab="apuracao" id="tab-apuracao" class="tab-btn px-4 py-2 text-sm">Apuração Mensal</button>
+                    <button data-tab="apuracao-anual" id="tab-apuracao-anual" class="tab-btn px-4 py-2 text-sm">IRPF Anual</button>
+                 </nav>
+                 <button id="export-btn" class="bg-bg-secondary border border-border-color text-sm px-4 py-2 rounded-lg hover:border-amber-500 hover:text-amber-500 transition-colors">Exportar</button>
+            </div>
+        </header>
+
+        <!-- Conteúdo das Abas -->
+        <main>
+            <!-- Módulo 1: Lançamentos -->
+            <div id="content-lancamentos" class="tab-content">
+                <div class="space-y-8">
+                    <!-- Formulário de Nova Transação -->
+                    <section class="bg-bg-secondary p-6 rounded-xl border border-border-color shadow-lg">
+                        <h2 class="text-lg font-semibold mb-6 text-white flex items-center space-x-2 border-b border-border-color pb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                            <span>Nova Transação</span>
+                        </h2>
+                        <form id="transaction-form" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                             <div>
+                                <label for="timestamp" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Data e Hora</label>
+                                <input type="datetime-local" id="timestamp" class="w-full rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all" required>
+                            </div>
+                            <div>
+                                <label for="exchange" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Exchange</label>
+                                <input type="text" id="exchange" placeholder="ex: Binance" class="w-full rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all" required>
+                            </div>
+                            <div>
+                                <label for="locationType" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Local</label>
+                                <select id="locationType" class="w-full rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all">
+                                    <option value="ESTRANGEIRA">Estrangeira</option>
+                                    <option value="NACIONAL">Nacional</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label for="asset" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Ativo</label>
+                                <input type="text" id="asset" placeholder="ex: BTC" class="w-full rounded-lg px-3 py-2.5 uppercase focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all" required>
+                            </div>
+                             <div>
+                                <label for="operationType" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Operação</label>
+                                <select id="operationType" class="w-full rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all" required>
+                                    <option value="COMPRA">COMPRA</option>
+                                    <option value="VENDA">VENDA</option>
+                                    <option value="PERMUTA_ENTRADA">PERMUTA ENTRADA</option>
+                                    <option value="PERMUTA_SAIDA">PERMUTA SAÍDA</option>
+                                    <option value="STAKING_REWARD">STAKING REWARD</option>
+                                </select>
+                            </div>
+                             <div>
+                                <label for="assetQuantity" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Quantidade</label>
+                                <input type="text" inputmode="decimal" id="assetQuantity" placeholder="0,0000" class="w-full rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all" required>
+                            </div>
+                             <div>
+                                <label for="pairCurrency" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Moeda do Par</label>
+                                <input type="text" id="pairCurrency" placeholder="ex: BRL, USDT" class="w-full rounded-lg px-3 py-2.5 uppercase focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all" required>
+                            </div>
+                            <div>
+                                <label for="pairPrice" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Preço Unitário</label>
+                                <div class="relative">
+                                    <span id="pair-price-symbol" class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-secondary">$</span>
+                                    <input type="text" inputmode="decimal" id="pairPrice" placeholder="0,00" class="w-full rounded-lg px-3 py-2.5 pl-8 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all" required>
+                                </div>
+                            </div>
+                            <!-- Campos Opcionais -->
+                             <div>
+                                <label for="feeCurrency" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Taxa (Moeda)</label>
+                                <input type="text" id="feeCurrency" placeholder="ex: BNB" class="w-full rounded-lg px-3 py-2.5 uppercase focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all">
+                            </div>
+                            <div>
+                                <label for="feeQuantity" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Taxa (Qtd)</label>
+                                <input type="text" inputmode="decimal" id="feeQuantity" placeholder="0,00" class="w-full rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all">
+                            </div>
+                            <div>
+                                <label for="brlUsdRate" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">PTAX (BRL/USD)</label>
+                                <input type="text" inputmode="decimal" id="brlUsdRate" placeholder="0,0000" class="w-full rounded-lg px-3 py-2.5 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all">
+                            </div>
+                             <div id="average-cost-b-r-l-wrapper" class="hidden">
+                                <label for="averageCostBRL" class="block text-xs font-medium text-text-secondary mb-1 uppercase tracking-wider">Preço Médio</label>
+                                <div class="relative">
+                                    <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-secondary">R$</span>
+                                    <input type="text" id="averageCostBRL" placeholder="Auto" class="w-full rounded-lg px-3 py-2.5 pl-8 focus:ring-2 focus:ring-accent focus:border-transparent outline-none transition-all">
+                                </div>
+                            </div>
+
+                            <div class="md:col-span-2 lg:col-span-3 pt-2">
+                                <button type="submit" id="add-transaction-btn" class="w-full bg-accent hover:bg-amber-600 text-gray-900 font-bold py-3 px-6 rounded-lg transition duration-300 disabled:bg-gray-700 disabled:text-gray-500 disabled:cursor-not-allowed flex items-center justify-center space-x-2 shadow-lg shadow-amber-500/10" disabled>
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" /></svg>
+                                    <span id="add-transaction-btn-text">Adicionar Transação</span>
+                                </button>
+                                <div id="connection-status" class="text-xs text-center text-text-secondary mt-3 font-medium">Conectando...</div>
+                            </div>
+                        </form>
+                    </section>
+                    
+                    <!-- Tabela de Transações -->
+                    <section class="bg-bg-secondary p-6 rounded-xl border border-border-color shadow-lg">
+                        <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                            <h2 class="text-lg font-semibold text-white">Histórico</h2>
+                            <div class="flex items-center space-x-3 w-full md:w-auto">
+                                <button id="batch-delete-btn" class="hidden bg-red-500/10 border border-red-500 text-red-500 text-sm px-4 py-2 rounded-lg hover:bg-red-500/20 transition-colors">Excluir (<span id="selected-count">0</span>)</button>
+                                <button id="import-btn" class="flex-1 md:flex-none bg-bg-primary border border-border-color text-sm px-4 py-2 rounded-lg hover:border-text-secondary transition-colors flex items-center justify-center space-x-2 text-text-secondary hover:text-white">
+                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+                                    <span>Importar</span>
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <!-- Filtros -->
+                        <div class="flex flex-col md:flex-row items-center gap-4 mb-6 pb-6 border-b border-border-color">
+                            <div class="w-full md:flex-1">
+                                <input type="text" id="filter-asset" placeholder="Buscar Ativo (ex: BTC)" class="w-full bg-bg-primary rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-accent focus:border-accent uppercase">
+                            </div>
+                            <div class="w-full md:flex-1">
+                                <select id="filter-operation" class="w-full bg-bg-primary rounded-lg px-4 py-2 text-sm focus:ring-1 focus:ring-accent focus:border-accent">
+                                    <option value="">Todas as Operações</option>
+                                    <option value="COMPRA">COMPRA</option>
+                                    <option value="VENDA">VENDA</option>
+                                    <option value="PERMUTA_ENTRADA">PERMUTA ENTRADA</option>
+                                    <option value="PERMUTA_SAIDA">PERMUTA SAÍDA</option>
+                                    <option value="STAKING_REWARD">STAKING REWARD</option>
+                                </select>
+                            </div>
+                            <button id="clear-filters-btn" class="text-xs text-text-secondary hover:text-accent underline whitespace-nowrap">Limpar Filtros</button>
+                        </div>
+
+                        <div class="overflow-x-auto max-h-[600px]">
+                            <table class="w-full text-sm text-left text-text-secondary whitespace-nowrap">
+                                <thead class="text-xs text-text-secondary uppercase bg-bg-primary sticky top-0 z-10">
+                                    <tr>
+                                        <th scope="col" class="p-4 rounded-tl-lg bg-bg-primary"><input id="select-all-checkbox" type="checkbox"></th>
+                                        <th scope="col" class="px-4 py-3 bg-bg-primary">Data</th>
+                                        <th scope="col" class="px-4 py-3 bg-bg-primary">Exchange</th>
+                                        <th scope="col" class="px-4 py-3 bg-bg-primary">Ativo</th>
+                                        <th scope="col" class="px-4 py-3 bg-bg-primary">Operação</th>
+                                        <th scope="col" class="px-4 py-3 bg-bg-primary text-right">Qtd</th>
+                                        <th scope="col" class="px-4 py-3 bg-bg-primary text-right">Preço</th>
+                                        <th scope="col" class="px-4 py-3 bg-bg-primary text-right">Total (BRL)</th>
+                                        <th scope="col" class="px-4 py-3 rounded-tr-lg bg-bg-primary text-center">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="transactions-table-body" class="divide-y divide-border-color"></tbody>
+                            </table>
+                        </div>
+                    </section>
+                </div>
+            </div>
+
+            <div id="content-apuracao" class="hidden tab-content">
+                <div class="bg-bg-secondary p-6 rounded-xl border border-border-color max-w-3xl mx-auto shadow-lg">
+                    <h2 class="text-lg font-semibold mb-6 text-white border-b border-border-color pb-4">Apuração Fiscal Mensal</h2>
+                    <div class="flex flex-col md:flex-row items-center gap-4 mb-6">
+                        <input type="month" id="report-month" class="w-full md:w-auto flex-1 rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-accent focus:border-accent">
+                        <button id="generate-monthly-report-btn" class="w-full md:w-auto bg-accent hover:bg-amber-600 text-gray-900 font-bold py-2.5 px-6 rounded-lg transition duration-300">Gerar</button>
+                        <button id="update-monthly-report-btn" class="w-full md:w-auto bg-bg-primary border border-accent text-accent hover:bg-accent/10 font-semibold py-2.5 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Atualizar</button>
+                        <button id="copy-monthly-report-btn" class="w-full md:w-auto bg-bg-primary border border-border-color text-text-secondary hover:text-white font-semibold py-2.5 px-4 rounded-lg transition duration-300" title="Copiar Texto">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                        </button>
+                    </div>
+                    <div id="deadline-alert" class="hidden p-4 mb-4 text-sm rounded-lg" role="alert"></div>
+                    <div id="monthly-report-changes" class="hidden"></div>
+                    <div id="report-output" class="bg-bg-primary p-6 rounded-lg whitespace-pre-wrap text-sm font-sans leading-relaxed border border-border-color text-gray-300 min-h-[200px]">
+                        Selecione o mês e ano acima para gerar o relatório de obrigações fiscais.
+                    </div>
+                </div>
+            </div>
+            
+            <div id="content-apuracao-anual" class="hidden tab-content">
+                <div class="bg-bg-secondary p-6 rounded-xl border border-border-color max-w-3xl mx-auto shadow-lg">
+                    <h2 class="text-lg font-semibold mb-6 text-white border-b border-border-color pb-4">Apuração Anual para IRPF</h2>
+                    <div class="flex flex-col md:flex-row items-center gap-4 mb-6">
+                        <input type="number" id="report-year" placeholder="Ano (Ex: 2024)" class="w-full md:w-auto flex-1 rounded-lg px-4 py-2.5 focus:ring-1 focus:ring-accent focus:border-accent">
+                        <button id="generate-annual-report-btn" class="w-full md:w-auto bg-accent hover:bg-amber-600 text-gray-900 font-bold py-2.5 px-6 rounded-lg transition duration-300">Gerar</button>
+                        <button id="update-annual-report-btn" class="w-full md:w-auto bg-bg-primary border border-accent text-accent hover:bg-accent/10 font-semibold py-2.5 px-6 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed" disabled>Atualizar</button>
+                         <button id="copy-annual-report-btn" class="w-full md:w-auto bg-bg-primary border border-border-color text-text-secondary hover:text-white font-semibold py-2.5 px-4 rounded-lg transition duration-300" title="Copiar Texto">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" /></svg>
+                        </button>
+                    </div>
+                    <div id="annual-report-changes" class="hidden"></div>
+                    <div id="annual-report-output" class="bg-bg-primary p-6 rounded-lg whitespace-pre-wrap text-sm font-sans leading-relaxed border border-border-color text-gray-300 min-h-[200px]">
+                        Selecione o ano para gerar o relatório consolidado para a sua declaração.
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-dashboard" class="hidden tab-content space-y-8">
+                 <section class="bg-bg-secondary p-6 rounded-xl border border-border-color shadow-lg">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-lg font-semibold text-white">Posição da Carteira</h2>
+                        <button id="analyze-btn" class="bg-accent hover:bg-amber-600 text-gray-900 font-bold py-2 px-4 rounded-lg transition duration-300 flex items-center space-x-2 text-sm">
+                            <span>✨ IA Insight</span>
+                            <div id="analyze-spinner" class="hidden spinner"></div>
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                        <div class="bg-bg-primary p-4 rounded-lg border border-border-color">
+                            <p class="text-sm text-text-secondary">Patrimônio Total</p>
+                            <p id="summary-total-equity" class="text-2xl font-bold text-white">R$ 0,00</p>
+                        </div>
+                        <div class="bg-bg-primary p-4 rounded-lg border border-border-color">
+                            <p class="text-sm text-text-secondary">Valor Investido</p>
+                            <p id="summary-total-invested" class="text-2xl font-bold text-white">R$ 0,00</p>
+                        </div>
+                        <div class="bg-bg-primary p-4 rounded-lg border border-border-color">
+                            <p class="text-sm text-text-secondary">L/P ñ Realizado</p>
+                            <p id="summary-unrealized-pl" class="text-2xl font-bold text-white">R$ 0,00</p>
+                        </div>
+                        <div class="bg-bg-primary p-4 rounded-lg border border-border-color">
+                            <p class="text-sm text-text-secondary">Quantidade de Ativos</p>
+                            <p id="summary-asset-count" class="text-2xl font-bold text-white">0</p>
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 lg:grid-cols-5 gap-8 items-center">
+                        <div class="lg:col-span-3">
+                            <div class="overflow-x-auto">
+                                <table class="w-full text-xs md:text-sm text-left text-text-secondary">
+                                    <thead class="text-xs text-text-secondary uppercase bg-bg-primary">
+                                        <tr>
+                                            <th scope="col" class="px-2 py-3">Ativo</th>
+                                            <th scope="col" class="px-2 py-3 text-right">Quantidade</th>
+                                            <th scope="col" class="px-2 py-3 text-right">Preço Médio</th>
+                                            <th scope="col" class="px-2 py-3 text-right">Preço Atual</th>
+                                            <th scope="col" class="px-2 py-3 text-right">Posição Atual (R$)</th>
+                                            <th scope="col" class="px-2 py-3 text-right">L/P ñ Realizado</th>
+                                            <th scope="col" class="px-2 py-3 text-right">% Carteira</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="dashboard-unified-table-body" class="divide-y divide-border-color">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="lg:col-span-2 relative h-64 md:h-80">
+                            <canvas id="portfolio-chart"></canvas>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-bg-secondary rounded-xl shadow-2xl p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto border border-border-color">
+            <h2 class="text-xl font-bold mb-6 text-white border-b border-border-color pb-3">Editar Transação</h2>
+            <form id="edit-transaction-form" class="space-y-4">
+                <input type="hidden" id="edit-transaction-id">
+                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Data e Hora</label>
+                        <input type="datetime-local" id="edit-timestamp" class="w-full rounded-lg px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Exchange</label>
+                        <input type="text" id="edit-exchange" class="w-full rounded-lg px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Local</label>
+                        <select id="edit-locationType" class="w-full rounded-lg px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent">
+                            <option value="ESTRANGEIRA">Estrangeira</option>
+                            <option value="NACIONAL">Nacional</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Ativo</label>
+                        <input type="text" id="edit-asset" class="w-full rounded-lg px-3 py-2 uppercase focus:ring-1 focus:ring-accent focus:border-accent" required>
+                    </div>
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Operação</label>
+                        <select id="edit-operationType" class="w-full rounded-lg px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent" required>
+                            <option value="COMPRA">COMPRA</option>
+                            <option value="VENDA">VENDA</option>
+                            <option value="PERMUTA_ENTRADA">PERMUTA ENTRADA</option>
+                            <option value="PERMUTA_SAIDA">PERMUTA SAÍDA</option>
+                            <option value="STAKING_REWARD">STAKING REWARD</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Quantidade</label>
+                        <input type="text" inputmode="decimal" id="edit-assetQuantity" class="w-full rounded-lg px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Moeda Par</label>
+                        <input type="text" id="edit-pairCurrency" class="w-full rounded-lg px-3 py-2 uppercase focus:ring-1 focus:ring-accent focus:border-accent" required>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Preço Unitário</label>
+                        <div class="relative">
+                            <span id="edit-pair-price-symbol" class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-secondary">$</span>
+                            <input type="text" inputmode="decimal" id="edit-pairPrice" class="w-full rounded-lg px-3 py-2 pl-8 focus:ring-1 focus:ring-accent focus:border-accent" required>
+                        </div>
+                    </div>
+                     <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Taxa (Moeda)</label>
+                        <input type="text" id="edit-feeCurrency" class="w-full rounded-lg px-3 py-2 uppercase focus:ring-1 focus:ring-accent focus:border-accent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">Taxa (Qtd)</label>
+                        <input type="text" inputmode="decimal" id="edit-feeQuantity" class="w-full rounded-lg px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-text-secondary mb-1">PTAX</label>
+                        <input type="text" inputmode="decimal" id="edit-brlUsdRate" class="w-full rounded-lg px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent">
+                    </div>
+                    <div id="edit-average-cost-b-r-l-wrapper" class="md:col-span-2 hidden">
+                        <label for="edit-averageCostBRL" class="block text-xs font-medium text-text-secondary mb-1">Preço Médio (Opcional)</label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-text-secondary">R$</span>
+                            <input type="text" id="edit-averageCostBRL" class="w-full rounded-lg px-3 py-2 pl-8">
+                        </div>
+                    </div>
+                 </div>
+                <div class="flex justify-end space-x-3 pt-6 border-t border-border-color">
+                    <button type="button" id="cancel-edit-btn" class="px-4 py-2 rounded-lg border border-border-color text-text-secondary hover:bg-bg-primary hover:text-white transition-colors">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-accent hover:bg-amber-600 text-gray-900 font-bold transition-colors">Salvar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div id="import-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-bg-secondary rounded-xl shadow-xl p-6 w-full max-w-4xl max-h-full overflow-y-auto border border-border-color">
+            <h2 class="text-lg font-bold mb-4 text-white">Importar Transações</h2>
+            
+            <div id="import-step-1">
+                <p class="text-sm text-text-secondary mb-6">Escolha o método de importação:</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                     <label for="import-file-csv" class="flex flex-col items-center justify-center h-40 border-2 border-border-color border-dashed rounded-xl cursor-pointer hover:bg-bg-primary hover:border-accent transition-all group">
+                        <svg class="w-8 h-8 mb-3 text-text-secondary group-hover:text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                        <p class="font-medium text-white">Arquivo CSV</p>
+                        <p class="text-xs text-text-secondary mt-1">Nativo (Funciona Offline)</p>
+                        <input id="import-file-csv" type="file" class="hidden" accept=".csv" />
+                    </label>
+
+                    <label for="import-file-ai" id="btn-import-ai" class="flex flex-col items-center justify-center h-40 border-2 border-border-color border-dashed rounded-xl cursor-pointer hover:bg-bg-primary hover:border-purple-500 transition-all group relative overflow-hidden">
+                        <div class="absolute top-2 right-2 bg-purple-500/20 text-purple-300 text-[10px] px-2 py-0.5 rounded-full border border-purple-500/30">IA Beta</div>
+                        <svg class="w-8 h-8 mb-3 text-text-secondary group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                        <p class="font-medium text-white">Imagem ou PDF</p>
+                        <p class="text-xs text-text-secondary mt-1">Requer Conexão</p>
+                        <input id="import-file-ai" type="file" class="hidden" accept="image/png, image/jpeg, image/webp, application/pdf" />
+                    </label>
+                </div>
+            </div>
+
+            <div id="import-step-2" class="hidden mt-6 text-center">
+                 <div id="import-loader" class="flex flex-col items-center justify-center py-8">
+                    <div class="spinner mb-4"></div>
+                    <p class="text-text-secondary">Processando arquivo...</p>
+                </div>
+                <div id="csv-mapping-section" class="hidden text-left">
+                    <h3 class="text-md font-medium mb-4 text-white">Mapear Colunas (CSV)</h3>
+                    <div id="column-mapping" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+                    <div class="text-right mt-6">
+                        <button type="button" id="process-csv-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg">Processar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="import-step-3" class="hidden mt-6">
+                <h3 class="text-md font-medium mb-3 text-white">Confirmação</h3>
+                <div class="overflow-x-auto max-h-60 rounded-lg border border-border-color">
+                    <table class="w-full text-xs text-left text-text-secondary">
+                        <thead id="preview-table-head" class="text-xs uppercase bg-bg-primary sticky top-0"></thead>
+                        <tbody id="preview-table-body" class="divide-y divide-border-color bg-bg-secondary"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="flex justify-end space-x-3 mt-6 pt-4 border-t border-border-color">
+                <button type="button" id="cancel-import-btn" class="px-4 py-2 rounded-lg border border-border-color text-text-secondary hover:bg-bg-primary transition-colors">Cancelar</button>
+                <button type="button" id="confirm-import-btn" class="hidden px-4 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white font-bold transition-colors">Importar</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="generic-confirm-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-bg-secondary rounded-xl shadow-xl p-6 w-full max-w-sm border border-border-color">
+            <h2 id="generic-confirm-title" class="text-lg font-bold mb-2 text-white">Confirmar</h2>
+            <p id="generic-confirm-message" class="text-sm text-text-secondary mb-6">Tem certeza?</p>
+            <div class="flex justify-end space-x-3">
+                 <button type="button" id="generic-cancel-btn" class="px-4 py-2 rounded-lg border border-border-color text-text-secondary hover:text-white transition-colors">Cancelar</button>
+                <button type="button" id="generic-confirm-btn" class="px-4 py-2 rounded-lg bg-red-600 hover:bg-red-700 text-white font-bold transition-colors">Confirmar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ai-analysis-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-bg-secondary rounded-xl shadow-2xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto border border-border-color">
+             <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold text-white flex items-center gap-2">
+                    <span>✨ Análise Inteligente</span>
+                </h2>
+                <button id="close-ai-modal-btn" class="text-text-secondary hover:text-white text-2xl leading-none">&times;</button>
+            </div>
+            <div id="ai-analysis-content" class="bg-bg-primary p-6 rounded-lg text-sm text-gray-300 leading-relaxed border border-border-color">
+            </div>
+        </div>
+    </div>
+
+    <div id="export-modal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+        <div class="bg-bg-secondary rounded-xl shadow-xl p-6 w-full max-w-md border border-border-color">
+            <h2 class="text-lg font-bold mb-6 text-white">Exportar Dados</h2>
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-xs font-medium text-text-secondary mb-2 uppercase">Relatório</label>
+                    <select id="export-report-type" class="w-full rounded-lg px-3 py-2.5 focus:ring-1 focus:ring-accent focus:border-accent">
+                        <option value="transactions">Histórico de Transações</option>
+                        <option value="custody">Posição em Custódia</option>
+                    </select>
+                </div>
+                <div id="export-period-selector">
+                    <label class="block text-xs font-medium text-text-secondary mb-2 uppercase">Período</label>
+                    <div class="grid grid-cols-2 gap-2 mb-3">
+                        <button data-period="1m" class="period-btn bg-bg-primary border border-border-color text-xs px-2 py-2 rounded-md hover:border-accent hover:text-accent transition-colors">Último Mês</button>
+                        <button data-period="6m" class="period-btn bg-bg-primary border border-border-color text-xs px-2 py-2 rounded-md hover:border-accent hover:text-accent transition-colors">6 Meses</button>
+                        <button data-period="1y" class="period-btn bg-bg-primary border border-border-color text-xs px-2 py-2 rounded-md hover:border-accent hover:text-accent transition-colors">1 Ano</button>
+                        <button data-period="all" class="period-btn bg-bg-primary border border-border-color text-xs px-2 py-2 rounded-md hover:border-accent hover:text-accent transition-colors">Tudo</button>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <input type="date" id="export-start-date" class="w-full rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-accent focus:border-accent">
+                        <span class="text-text-secondary text-xs">a</span>
+                        <input type="date" id="export-end-date" class="w-full rounded-lg px-3 py-2 text-xs focus:ring-1 focus:ring-accent focus:border-accent">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-xs font-medium text-text-secondary mb-2 uppercase">Formato</label>
+                    <div class="flex space-x-2">
+                        <button id="export-csv-btn" class="flex-1 bg-green-600/20 border border-green-600 text-green-400 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-green-600/30 transition-colors">CSV</button>
+                        <button id="export-xlsx-btn" class="flex-1 bg-green-600/20 border border-green-600 text-green-400 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-green-600/30 transition-colors">Excel</button>
+                        <button id="export-pdf-btn" class="flex-1 bg-red-600/20 border border-red-600 text-red-400 text-sm font-semibold px-4 py-2 rounded-lg hover:bg-red-600/30 transition-colors">PDF</button>
+                    </div>
+                </div>
+            </div>
+            <div class="mt-8 text-right border-t border-border-color pt-4">
+                <button id="cancel-export-btn" class="text-sm text-text-secondary hover:text-white transition-colors">Cancelar</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="px-6 py-3 rounded-lg shadow-xl text-white font-medium flex items-center gap-2">
+        <span id="toast-message"></span>
+    </div>
+
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- Estado da Aplicação e Armazenamento ---
+        let transactions = [];
+        let currentTab = 'lancamentos';
+        let parsedCsvData = [];
+        let extractedTransactions = [];
+        let portfolioChartInstance = null;
+        let selectedTransactions = new Set();
+        let monthlyReportIsOutdated = false;
+        let annualReportIsOutdated = false;
+        let lastMonthlyReportData = {};
+        let lastAnnualReportData = {};
+        
+        // Firebase objects
+        let db, auth, userId, transactionsCollectionRef;
+        let unsubscribeFromTransactions = null; 
+        let storageMode = 'firebase';
+        let isAuthReady = false;
+
+        // --- Configuração do Tailwind ---
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'bg-primary': '#0f172a',
+                        'bg-secondary': '#1e293b',
+                        'border-color': '#334155',
+                        'text-primary': '#f1f5f9',
+                        'text-secondary': '#94a3b8',
+                        'accent': '#f59e0b',
+                    }
+                }
+            }
+        }
+
+        // --- DOM Elements Cache ---
+        const DOMElements = {
+            addTransactionBtn: document.getElementById('add-transaction-btn'),
+            addTransactionBtnText: document.getElementById('add-transaction-btn-text'),
+            connectionStatus: document.getElementById('connection-status'),
+            transactionsTableBody: document.getElementById('transactions-table-body'),
+            toast: document.getElementById('toast-notification'),
+            toastMessage: document.getElementById('toast-message'),
+            genericConfirmModal: document.getElementById('generic-confirm-modal'),
+            genericConfirmTitle: document.getElementById('generic-confirm-title'),
+            genericConfirmMessage: document.getElementById('generic-confirm-message'),
+            genericConfirmBtn: document.getElementById('generic-confirm-btn'),
+            genericCancelBtn: document.getElementById('generic-cancel-btn'),
+            updateMonthlyReportBtn: document.getElementById('update-monthly-report-btn'),
+            updateAnnualReportBtn: document.getElementById('update-annual-report-btn'),
+            monthlyReportOutput: document.getElementById('report-output'),
+            annualReportOutput: document.getElementById('annual-report-output'),
+            monthlyReportChanges: document.getElementById('monthly-report-changes'),
+            annualReportChanges: document.getElementById('annual-report-changes'),
+            copyMonthlyReportBtn: document.getElementById('copy-monthly-report-btn'),
+            copyAnnualReportBtn: document.getElementById('copy-annual-report-btn'),
+        };
+
+        // --- Funções de UI & Notificação ---
+        function showToast(message, type = 'success') {
+            DOMElements.toastMessage.textContent = message;
+            DOMElements.toast.className = 'px-6 py-3 rounded-lg shadow-xl text-white font-medium flex items-center gap-2'; // Reset
+            if (type === 'error') {
+                DOMElements.toast.classList.add('bg-red-600');
+            } else if (type === 'warning') {
+                DOMElements.toast.classList.add('bg-amber-600');
+            } else {
+                DOMElements.toast.classList.add('bg-green-600');
+            }
+            DOMElements.toast.classList.add('show');
+            setTimeout(() => {
+                DOMElements.toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        function showConfirmationModal({ title, message, confirmText = 'Confirmar', onConfirm }) {
+            DOMElements.genericConfirmTitle.textContent = title;
+            DOMElements.genericConfirmMessage.innerHTML = message;
+            DOMElements.genericConfirmBtn.textContent = confirmText;
+            DOMElements.genericConfirmModal.classList.remove('hidden');
+
+            const newConfirmBtn = DOMElements.genericConfirmBtn.cloneNode(true);
+            DOMElements.genericConfirmBtn.parentNode.replaceChild(newConfirmBtn, DOMElements.genericConfirmBtn);
+            DOMElements.genericConfirmBtn = newConfirmBtn;
+
+            DOMElements.genericConfirmBtn.addEventListener('click', () => {
+                onConfirm();
+                closeConfirmationModal();
+            }, { once: true });
+        }
+
+        function closeConfirmationModal() {
+            DOMElements.genericConfirmModal.classList.add('hidden');
+        }
+
+        function handleDataChange() {
+            if(DOMElements.monthlyReportOutput.innerHTML.includes('Relatório de Apuração Fiscal')) {
+                monthlyReportIsOutdated = true;
+            }
+            if(DOMElements.annualReportOutput.innerHTML.includes('Relatório Consolidado Anual')) {
+                annualReportIsOutdated = true;
+            }
+            updateReportButtonsState();
+        }
+
+        function updateReportButtonsState() {
+            DOMElements.updateMonthlyReportBtn.disabled = !monthlyReportIsOutdated;
+            DOMElements.updateAnnualReportBtn.disabled = !annualReportIsOutdated;
+            
+            if(monthlyReportIsOutdated) {
+                 DOMElements.updateMonthlyReportBtn.classList.remove('bg-bg-primary', 'text-accent');
+                 DOMElements.updateMonthlyReportBtn.classList.add('bg-accent', 'text-gray-900');
+            } else {
+                 DOMElements.updateMonthlyReportBtn.classList.add('bg-bg-primary', 'text-accent');
+                 DOMElements.updateMonthlyReportBtn.classList.remove('bg-accent', 'text-gray-900');
+            }
+        }
+
+
+        // --- Funções de Navegação ---
+        function changeTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('tab-active'));
+
+            document.getElementById(`content-${tabName}`).classList.remove('hidden');
+            document.getElementById(`tab-${tabName}`).classList.add('tab-active');
+            
+            currentTab = tabName;
+            
+            if (tabName === 'dashboard') {
+                renderDashboard();
+            }
+        }
+
+        // --- Funções de Lógica de Negócio e Cálculos ---
+        
+        function formatCurrencyBRL(number) {
+            return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(number || 0);
+        }
+
+        function formatDecimal(number) {
+            if (typeof number !== 'number') return '0';
+            return String(parseFloat(number.toFixed(8)));
+        }
+
+        function parseCurrency(value) {
+            if (typeof value !== 'string' || value.trim() === '') return 0;
+            const sanitized = value.replace(/\./g, '').replace(',', '.');
+            return parseFloat(sanitized) || 0;
+        }
+
+        async function fetchCurrentPrices(assetSymbols) {
+            if (assetSymbols.length === 0) return {};
+            const uniqueSymbols = [...new Set(assetSymbols.filter(s => s))];
+            if (uniqueSymbols.length === 0) return {};
+
+            const assetIdMap = {
+                'BTC': 'bitcoin', 'ETH': 'ethereum', 'BNB': 'binancecoin',
+                'USDT': 'tether', 'ADA': 'cardano', 'SOL': 'solana',
+                'XRP': 'ripple', 'DOGE': 'dogecoin',
+            };
+            const ids = uniqueSymbols.map(symbol => assetIdMap[symbol] || symbol.toLowerCase()).join(',');
+            const url = `https://api.coingecko.com/api/v3/simple/price?ids=${ids}&vs_currencies=brl`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Erro na API: ${response.statusText}`);
+                const data = await response.json();
+                const prices = {};
+                for (const symbol of uniqueSymbols) {
+                    const id = assetIdMap[symbol] || symbol.toLowerCase();
+                    prices[symbol] = (data[id] && data[id].brl) ? data[id].brl : 0;
+                }
+                return prices;
+            } catch (error) {
+                console.error("Falha ao buscar preços:", error);
+                const prices = {};
+                uniqueSymbols.forEach(symbol => prices[symbol] = 0);
+                return prices;
+            }
+        }
+        
+        function calculateAverageAcquisitionCost(asset, untilDate) {
+            const acquisitions = transactions
+                .filter(t => t.asset === asset && (t.operationType === 'COMPRA' || t.operationType === 'PERMUTA_ENTRADA' || t.operationType === 'STAKING_REWARD'))
+                .filter(t => new Date(t.timestamp) <= untilDate)
+                .sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+            let totalCostBRL = 0;
+            let totalQuantity = 0;
+            acquisitions.forEach(t => {
+                totalCostBRL += t.effectiveCostBRL;
+                totalQuantity += t.assetQuantity;
+            });
+            return totalQuantity > 0 ? totalCostBRL / totalQuantity : 0;
+        }
+
+        function calculateDerivedFields(transaction) {
+            const pairTotalValue = transaction.assetQuantity * transaction.pairPrice;
+            let rate = transaction.brlUsdRate;
+            if (transaction.pairCurrency === 'BRL') {
+                rate = 1;
+            }
+            const totalValueBRL = pairTotalValue * rate;
+            const feeValueBRL = transaction.feeCurrency === 'BRL' ? transaction.feeQuantity : (['USDT', 'USDC'].includes(transaction.feeCurrency) ? transaction.feeQuantity * rate : 0);
+            
+            let effectiveCostBRL;
+            if (['COMPRA', 'PERMUTA_ENTRADA', 'STAKING_REWARD'].includes(transaction.operationType)) {
+                effectiveCostBRL = totalValueBRL + feeValueBRL;
+            } else { // VENDA or PERMUTA_SAIDA
+                effectiveCostBRL = totalValueBRL - feeValueBRL;
+            }
+            return { pairTotalValue, totalValueBRL, feeValueBRL, effectiveCostBRL };
+        }
+
+        // --- Funções do Módulo 1: Lançamentos ---
+
+        async function handleAddTransaction(e) {
+            e.preventDefault();
+            const selectedDate = new Date(document.getElementById('timestamp').value);
+            if (selectedDate > new Date()) {
+                showConfirmationModal({
+                    title: 'Data Futura',
+                    message: 'A data inserida é no futuro. Deseja continuar?',
+                    confirmText: 'Continuar',
+                    onConfirm: () => proceedWithAddTransaction()
+                });
+            } else {
+                proceedWithAddTransaction();
+            }
+        }
+
+        async function proceedWithAddTransaction() {
+            const operationType = document.getElementById('operationType').value;
+            const asset = document.getElementById('asset').value.toUpperCase();
+            const avgCostInput = document.getElementById('averageCostBRL');
+            let averageCostBRL = 0;
+
+            if (['VENDA', 'PERMUTA_SAIDA'].includes(operationType)) {
+                if (avgCostInput.value.trim()) {
+                    averageCostBRL = parseCurrency(avgCostInput.value);
+                } else {
+                    averageCostBRL = calculateAverageAcquisitionCost(asset, new Date(document.getElementById('timestamp').value));
+                }
+            }
+
+            const newTransaction = {
+                timestamp: document.getElementById('timestamp').value,
+                exchange: document.getElementById('exchange').value,
+                locationType: document.getElementById('locationType').value,
+                asset: asset,
+                operationType: operationType,
+                assetQuantity: parseCurrency(document.getElementById('assetQuantity').value),
+                pairCurrency: document.getElementById('pairCurrency').value.toUpperCase(),
+                pairPrice: parseCurrency(document.getElementById('pairPrice').value),
+                feeCurrency: document.getElementById('feeCurrency').value.toUpperCase(),
+                feeQuantity: parseCurrency(document.getElementById('feeQuantity').value),
+                brlUsdRate: parseCurrency(document.getElementById('brlUsdRate').value),
+                averageCostBRL: averageCostBRL,
+            };
+
+            const derivedFields = calculateDerivedFields(newTransaction);
+            Object.assign(newTransaction, derivedFields);
+
+            if (storageMode === 'firebase') {
+                try {
+                    await addDoc(transactionsCollectionRef, newTransaction);
+                    showToast('Transação adicionada com sucesso!');
+                } catch (error) {
+                    console.error("Erro ao adicionar transação:", error);
+                    showToast("Não foi possível salvar a transação.", "error");
+                }
+            } else {
+                newTransaction.id = Date.now().toString();
+                transactions.push(newTransaction);
+                localStorage.setItem('cryptoTransactionsV12_local', JSON.stringify(transactions));
+                applyFilters();
+                showToast('Transação adicionada localmente!');
+            }
+            document.getElementById('transaction-form').reset();
+            handleDataChange();
+            toggleAverageCostField();
+            togglePtaxField();
+            updateCurrencyPrefix();
+        }
+
+        function renderTransactionsTable(filters = {}) {
+            DOMElements.transactionsTableBody.innerHTML = '';
+
+            let filteredTransactions = [...transactions];
+
+            if (filters.asset) {
+                filteredTransactions = filteredTransactions.filter(t => t.asset.toUpperCase().includes(filters.asset));
+            }
+            if (filters.operation) {
+                filteredTransactions = filteredTransactions.filter(t => t.operationType === filters.operation);
+            }
+            
+            const sortedTransactions = filteredTransactions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+
+            if (sortedTransactions.length === 0) {
+                DOMElements.transactionsTableBody.innerHTML = `<tr><td colspan="9" class="text-center py-8 text-text-secondary">Nenhuma transação encontrada.</td></tr>`;
+                return;
+            }
+
+            sortedTransactions.forEach(t => {
+                const isSelected = selectedTransactions.has(t.id);
+                const row = document.createElement('tr');
+                row.className = 'hover:bg-white/5 transition-colors border-b border-border-color/50 last:border-0';
+                row.innerHTML = `
+                    <td class="p-4 sticky left-0 bg-bg-secondary"><input type="checkbox" data-id="${t.id}" ${isSelected ? 'checked' : ''} class="transaction-checkbox"></td>
+                    <td class="px-4 py-3">${new Date(t.timestamp).toLocaleString('pt-BR')}</td>
+                    <td class="px-4 py-3">${t.exchange}</td>
+                    <td class="px-4 py-3 font-semibold text-text-primary">${t.asset}</td>
+                    <td class="px-4 py-3">
+                        <span class="px-2 py-1 rounded text-xs font-semibold ${t.operationType === 'COMPRA' ? 'bg-green-500/20 text-green-400' : (t.operationType === 'VENDA' ? 'bg-red-500/20 text-red-400' : 'bg-blue-500/20 text-blue-400')}">
+                            ${t.operationType.replace('_', ' ')}
+                        </span>
+                    </td>
+                    <td class="px-4 py-3 text-right font-mono-report">${formatDecimal(t.assetQuantity || 0)}</td>
+                    <td class="px-4 py-3 text-right font-mono-report">${t.pairCurrency === 'BRL' ? formatCurrencyBRL(t.pairPrice) : '$' + (t.pairPrice || 0).toFixed(2)}</td>
+                    <td class="px-4 py-3 text-right font-mono-report">${formatCurrencyBRL(t.effectiveCostBRL)}</td>
+                    <td class="px-4 py-3 flex items-center justify-center space-x-3">
+                        <button class="edit-btn text-text-secondary hover:text-accent transition-colors" data-id="${t.id}" title="Editar">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.5L15.232 5.232z" /></svg>
+                        </button>
+                        <button class="delete-btn text-text-secondary hover:text-red-500 transition-colors" data-id="${t.id}" title="Excluir">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                        </button>
+                    </td>
+                `;
+                DOMElements.transactionsTableBody.appendChild(row);
+            });
+            updateBatchDeleteButton();
+        }
+
+        function promptDelete(id) {
+            showConfirmationModal({
+                title: 'Confirmar Exclusão',
+                message: 'Você tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita.',
+                confirmText: 'Excluir',
+                onConfirm: () => deleteTransaction(id)
+            });
+        }
+
+        async function deleteTransaction(id) {
+            if (storageMode === 'firebase') {
+                try {
+                    const docRef = doc(db, transactionsCollectionRef.path, id);
+                    await deleteDoc(docRef);
+                    showToast("Transação excluída.");
+                } catch (error) {
+                    console.error("Erro ao excluir transação:", error);
+                    showToast("Não foi possível excluir a transação.", "error");
+                }
+            } else {
+                transactions = transactions.filter(t => t.id != id);
+                localStorage.setItem('cryptoTransactionsV12_local', JSON.stringify(transactions));
+                applyFilters();
+                if (currentTab === 'dashboard') renderDashboard();
+            }
+            selectedTransactions.delete(id);
+            handleDataChange();
+            updateBatchDeleteButton();
+        }
+        
+        function handleBatchDelete() {
+            if (selectedTransactions.size === 0) {
+                showToast("Nenhuma transação selecionada.", "warning");
+                return;
+            }
+            showConfirmationModal({
+                title: 'Excluir em Lote',
+                message: `Tem certeza que deseja excluir as ${selectedTransactions.size} transações selecionadas?`,
+                confirmText: 'Excluir Selecionados',
+                onConfirm: async () => {
+                     if (storageMode === 'firebase') {
+                        const batch = writeBatch(db);
+                        selectedTransactions.forEach(id => {
+                            const docRef = doc(db, transactionsCollectionRef.path, id);
+                            batch.delete(docRef);
+                        });
+                        try {
+                            await batch.commit();
+                            showToast(`${selectedTransactions.size} transações excluídas.`);
+                        } catch (error) {
+                            console.error("Erro na exclusão em lote:", error);
+                            showToast("Falha ao excluir transações.", "error");
+                        }
+                    } else {
+                        const idsToDelete = Array.from(selectedTransactions);
+                        transactions = transactions.filter(t => !idsToDelete.includes(String(t.id)));
+                        localStorage.setItem('cryptoTransactionsV12_local', JSON.stringify(transactions));
+                        applyFilters();
+                    }
+                    selectedTransactions.clear();
+                    handleDataChange();
+                    updateBatchDeleteButton();
+                }
+            });
+        }
+        
+        function updateBatchDeleteButton() {
+            const btn = document.getElementById('batch-delete-btn');
+            const countSpan = document.getElementById('selected-count');
+            const selectAllCheckbox = document.getElementById('select-all-checkbox');
+            if (selectedTransactions.size > 0) {
+                btn.classList.remove('hidden');
+                countSpan.textContent = selectedTransactions.size;
+            } else {
+                btn.classList.add('hidden');
+                selectAllCheckbox.checked = false;
+            }
+        }
+
+        // --- Funções do Modal de Edição ---
+
+        function openEditModal(id) {
+            const transaction = transactions.find(t => t.id == id);
+            if (!transaction) return;
+
+            document.getElementById('edit-transaction-id').value = transaction.id;
+            document.getElementById('edit-timestamp').value = transaction.timestamp;
+            document.getElementById('edit-exchange').value = transaction.exchange;
+            document.getElementById('edit-locationType').value = transaction.locationType;
+            document.getElementById('edit-asset').value = transaction.asset;
+            document.getElementById('edit-operationType').value = transaction.operationType;
+            document.getElementById('edit-assetQuantity').value = String(transaction.assetQuantity || '').replace('.', ',');
+            document.getElementById('edit-pairCurrency').value = transaction.pairCurrency;
+            document.getElementById('edit-pairPrice').value = String(transaction.pairPrice || '').replace('.', ',');
+            document.getElementById('edit-feeCurrency').value = transaction.feeCurrency;
+            document.getElementById('edit-feeQuantity').value = String(transaction.feeQuantity || '').replace('.', ',');
+            document.getElementById('edit-brlUsdRate').value = String(transaction.brlUsdRate || '').replace('.', ',');
+            
+            toggleAverageCostField('edit-');
+
+            if (['VENDA', 'PERMUTA_SAIDA'].includes(transaction.operationType)) {
+                const avgCostInput = document.getElementById('edit-averageCostBRL');
+                avgCostInput.value = transaction.averageCostBRL ? String(transaction.averageCostBRL).replace('.', ',') : '';
+            }
+
+            togglePtaxField('edit-');
+            updateCurrencyPrefix('edit-');
+            document.getElementById('edit-modal').classList.remove('hidden');
+        }
+
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+        }
+
+        async function handleEditTransaction(e) {
+            e.preventDefault();
+            const id = document.getElementById('edit-transaction-id').value;
+            const operationType = document.getElementById('edit-operationType').value;
+            const asset = document.getElementById('edit-asset').value.toUpperCase();
+            const avgCostInput = document.getElementById('edit-averageCostBRL');
+            let averageCostBRL = 0;
+
+            if (['VENDA', 'PERMUTA_SAIDA'].includes(operationType)) {
+                if (avgCostInput.value.trim()) {
+                    averageCostBRL = parseCurrency(avgCostInput.value);
+                } else {
+                    averageCostBRL = calculateAverageAcquisitionCost(asset, new Date(document.getElementById('edit-timestamp').value));
+                }
+            }
+
+            const updatedTransactionData = {
+                timestamp: document.getElementById('edit-timestamp').value,
+                exchange: document.getElementById('edit-exchange').value,
+                locationType: document.getElementById('edit-locationType').value,
+                asset: asset,
+                operationType: operationType,
+                assetQuantity: parseCurrency(document.getElementById('edit-assetQuantity').value),
+                pairCurrency: document.getElementById('edit-pairCurrency').value.toUpperCase(),
+                pairPrice: parseCurrency(document.getElementById('edit-pairPrice').value),
+                feeCurrency: document.getElementById('edit-feeCurrency').value.toUpperCase(),
+                feeQuantity: parseCurrency(document.getElementById('edit-feeQuantity').value),
+                brlUsdRate: parseCurrency(document.getElementById('edit-brlUsdRate').value),
+                averageCostBRL: averageCostBRL,
+            };
+
+            const derivedFields = calculateDerivedFields(updatedTransactionData);
+            Object.assign(updatedTransactionData, derivedFields);
+
+            if (storageMode === 'firebase') {
+                try {
+                    const docRef = doc(db, transactionsCollectionRef.path, id);
+                    await updateDoc(docRef, updatedTransactionData);
+                    showToast("Transação atualizada.");
+                } catch (error) {
+                    console.error("Erro ao atualizar transação:", error);
+                    showToast("Não foi possível salvar as alterações.", "error");
+                }
+            } else {
+                const transactionIndex = transactions.findIndex(t => t.id == id);
+                if(transactionIndex > -1){
+                    transactions[transactionIndex] = {id: id, ...updatedTransactionData};
+                    localStorage.setItem('cryptoTransactionsV12_local', JSON.stringify(transactions));
+                    applyFilters();
+                }
+            }
+            handleDataChange();
+            closeEditModal();
+        }
+        
+        // --- Funções do Modal de Importação ---
+        
+        function openImportModal() {
+            document.getElementById('import-modal').classList.remove('hidden');
+            // Reset to step 1
+            document.getElementById('import-step-1').classList.remove('hidden');
+            document.getElementById('import-step-2').classList.add('hidden');
+            document.getElementById('import-step-3').classList.add('hidden');
+            document.getElementById('csv-mapping-section').classList.add('hidden');
+            document.getElementById('import-loader').classList.add('hidden');
+            document.getElementById('confirm-import-btn').classList.add('hidden');
+            document.getElementById('import-file-csv').value = '';
+            document.getElementById('import-file-ai').value = '';
+
+            // Check connectivity for AI button styling (now allowed but saves locally)
+            const aiBtn = document.getElementById('btn-import-ai');
+             // We no longer block AI button based on storage mode, as we allow local saving.
+             // However, the actual AI CALL will fail if there is NO INTERNET connection at all.
+             // The "Cloud connection" status refers to Firebase, not general internet.
+        }
+
+        function closeImportModal() {
+            document.getElementById('import-modal').classList.add('hidden');
+        }
+        
+        function parseCSV(text) {
+            const lines = [];
+            const rows = text.split('\n');
+            for (const row of rows) {
+                if (row.trim() === '') continue;
+                const columns = [];
+                let current = '';
+                let inQuote = false;
+                for (let i = 0; i < row.length; i++) {
+                    const char = row[i];
+                    if (char === '"') {
+                        inQuote = !inQuote;
+                    } else if (char === ',' && !inQuote) {
+                        columns.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                columns.push(current.trim());
+                lines.push(columns);
+            }
+            return lines;
+        }
+
+
+        document.getElementById('import-file-csv').addEventListener('change', (event) => handleFileSelect(event));
+        document.getElementById('import-file-ai').addEventListener('change', (event) => handleFileSelect(event));
+
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            document.getElementById('import-step-1').classList.add('hidden');
+            document.getElementById('import-step-2').classList.remove('hidden');
+            document.getElementById('import-loader').classList.remove('hidden');
+
+            if (file.type.startsWith('image/') || file.type === 'application/pdf') {
+                handleFileRecognitionUpload(file);
+            } else if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                handleCsvUpload(file);
+            } else {
+                showToast("Formato de arquivo não suportado.", "error");
+                closeImportModal();
+            }
+        }
+
+        function handleCsvUpload(file) {
+            document.getElementById('import-loader').classList.add('hidden');
+            document.getElementById('csv-mapping-section').classList.remove('hidden');
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = e.target.result;
+                const parsedLines = parseCSV(text);
+                
+                if (parsedLines.length < 2) {
+                    showToast('Arquivo CSV inválido ou vazio.', 'error');
+                    return;
+                }
+                
+                const headers = parsedLines[0];
+                const dataRows = parsedLines.slice(1);
+                
+                parsedCsvData = dataRows.map(row => {
+                    let obj = {};
+                    headers.forEach((header, i) => {
+                        obj[header] = row[i] || '';
+                    });
+                    return obj;
+                });
+                
+                setupColumnMapping(headers);
+            };
+            reader.readAsText(file);
+        }
+
+        async function handleFileRecognitionUpload(file) {
+            // REMOVED: Check for storageMode === 'local'. AI now runs regardless of DB connection.
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = async () => {
+                const base64Data = reader.result.split(',')[1];
+                const isPdf = file.type === 'application/pdf';
+                
+                const systemPrompt = `Você é um assistente especialista em extrair dados de transações financeiras de imagens e documentos. Analise o arquivo fornecido e extraia todas as transações de criptomoedas que encontrar. O arquivo pode ser uma captura de tela, uma foto de anotações, ou um PDF. Retorne os dados como um array de objetos JSON. Cada objeto deve seguir estritamente o seguinte schema. Se uma informação não estiver presente, use um valor nulo ou padrão apropriado (ex: 0 para números, string vazia para texto). Tente inferir o tipo de operação (COMPRA, VENDA) se não estiver explícito.
+
+                Schema do JSON a ser retornado:
+                {
+                  "type": "ARRAY",
+                  "items": {
+                    "type": "OBJECT",
+                    "properties": {
+                      "timestamp": { "type": "STRING", "description": "Data e hora no formato YYYY-MM-DDTHH:mm" },
+                      "exchange": { "type": "STRING", "description": "Nome da corretora. Ex: 'Binance'" },
+                      "asset": { "type": "STRING", "description": "Símbolo do criptoativo. Ex: 'BTC'" },
+                      "operationType": { "type": "STRING", "description": "Tipo de operação: COMPRA, VENDA, PERMUTA_ENTRADA, PERMUTA_SAIDA, STAKING_REWARD" },
+                      "assetQuantity": { "type": "NUMBER", "description": "Quantidade do ativo" },
+                      "pairCurrency": { "type": "STRING", "description": "Moeda do par. Ex: 'BRL', 'USDT'" },
+                      "pairPrice": { "type": "NUMBER", "description": "Preço unitário do ativo na moeda do par" }
+                    }
+                  }
+                }`;
+                
+                const userPrompt = isPdf 
+                    ? "Extraia as transações de criptomoedas deste documento PDF e retorne os dados no formato JSON especificado."
+                    : "Extraia as transações de criptomoedas desta imagem e retorne os dados no formato JSON especificado.";
+
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: userPrompt },
+                                { inlineData: { mimeType: file.type, data: base64Data } }
+                            ]
+                        }
+                    ],
+                     generationConfig: {
+                        responseMimeType: "application/json",
+                    },
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+
+                try {
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`API Error: ${response.status}`);
+                    }
+                    const result = await response.json();
+                    
+                    const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    if (!jsonText) {
+                        throw new Error("A IA não retornou dados válidos.");
+                    }
+                    const parsedJson = JSON.parse(jsonText);
+                    
+                    if (Array.isArray(parsedJson) && parsedJson.length > 0) {
+                        extractedTransactions = parsedJson;
+                        renderPreviewTable(extractedTransactions);
+                    } else {
+                        showToast("Nenhuma transação encontrada no arquivo.", "warning");
+                        closeImportModal();
+                    }
+                } catch (error) {
+                    console.error("Erro ao processar arquivo com IA:", error);
+                    showToast("Falha ao extrair dados. Verifique sua conexão com a internet.", "error");
+                    closeImportModal();
+                }
+            };
+        }
+
+        function setupColumnMapping(headers) {
+            const mappingDiv = document.getElementById('column-mapping');
+            mappingDiv.innerHTML = '';
+            const appFields = ['timestamp', 'exchange', 'locationType', 'asset', 'operationType', 'assetQuantity', 'pairCurrency', 'pairPrice', 'feeCurrency', 'feeQuantity', 'brlUsdRate'];
+            const fieldLabels = {
+                timestamp: 'Data e Hora', exchange: 'Exchange', locationType: 'Local', asset: 'Ativo', operationType: 'Tipo de Operação',
+                assetQuantity: 'Quantidade do Ativo', pairCurrency: 'Moeda do Preço (Par)', pairPrice: 'Preço Unitário',
+                feeCurrency: 'Ativo da Taxa', feeQuantity: 'Quantidade da Taxa', brlUsdRate: 'Cotação PTAX'
+            };
+
+            appFields.forEach(field => {
+                const isRequired = !['locationType', 'feeCurrency', 'feeQuantity'].includes(field);
+                let options = `<option value="">Ignorar</option>`;
+                headers.forEach((header, index) => {
+                    const selected = header.toLowerCase().replace(/[\s_]/g, '').includes(field.toLowerCase()) ? 'selected' : '';
+                    options += `<option value="${index}" ${selected}>${header}</option>`;
+                });
+                
+                mappingDiv.innerHTML += `
+                    <div class="flex flex-col">
+                        <label for="map-${field}" class="block text-sm font-medium text-text-secondary mb-1">${fieldLabels[field]} ${isRequired ? '<span class="text-red-500">*</span>' : ''}</label>
+                        <select id="map-${field}" class="w-full rounded-md px-3 py-2 focus:ring-1 focus:ring-accent focus:border-accent">
+                            ${options}
+                        </select>
+                    </div>
+                `;
+            });
+        }
+
+        document.getElementById('process-csv-btn').addEventListener('click', () => {
+            const mapping = {};
+            const appFields = ['timestamp', 'exchange', 'asset', 'operationType', 'assetQuantity', 'pairCurrency', 'pairPrice'];
+            appFields.forEach(field => {
+                mapping[field] = document.getElementById(`map-${field}`).value;
+            });
+
+             const transactionsFromCsv = parsedCsvData.map(row => {
+                const values = Object.values(row);
+                let transaction = {};
+                appFields.forEach(field => {
+                    transaction[field] = mapping[field] !== '' ? values[mapping[field]] : '';
+                });
+                return transaction;
+            });
+            extractedTransactions = transactionsFromCsv;
+            renderPreviewTable(extractedTransactions);
+        });
+
+        function renderPreviewTable(data) {
+            document.getElementById('import-loader').classList.add('hidden');
+            document.getElementById('csv-mapping-section').classList.add('hidden');
+            document.getElementById('import-step-3').classList.remove('hidden');
+            document.getElementById('confirm-import-btn').classList.remove('hidden');
+
+            const previewHead = document.getElementById('preview-table-head');
+            const previewBody = document.getElementById('preview-table-body');
+            const headers = ['Data', 'Exchange', 'Ativo', 'Operação', 'Quantidade', 'Moeda Par', 'Preço Unitário'];
+            previewHead.innerHTML = '<tr>' + headers.map(h => `<th class="px-2 py-2">${h}</th>`).join('') + '</tr>';
+            previewBody.innerHTML = '';
+
+            data.forEach((tx, index) => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td class="p-2"><input class="preview-input w-full bg-bg-primary border border-border-color rounded px-1" data-index="${index}" data-field="timestamp" value="${tx.timestamp || ''}"></td>
+                    <td class="p-2"><input class="preview-input w-full bg-bg-primary border border-border-color rounded px-1" data-index="${index}" data-field="exchange" value="${tx.exchange || ''}"></td>
+                    <td class="p-2"><input class="preview-input w-full bg-bg-primary border border-border-color rounded px-1" data-index="${index}" data-field="asset" value="${tx.asset || ''}"></td>
+                    <td class="p-2"><input class="preview-input w-full bg-bg-primary border border-border-color rounded px-1" data-index="${index}" data-field="operationType" value="${tx.operationType || ''}"></td>
+                    <td class="p-2"><input class="preview-input w-full bg-bg-primary border border-border-color rounded px-1" data-index="${index}" data-field="assetQuantity" value="${tx.assetQuantity || 0}"></td>
+                    <td class="p-2"><input class="preview-input w-full bg-bg-primary border border-border-color rounded px-1" data-index="${index}" data-field="pairCurrency" value="${tx.pairCurrency || ''}"></td>
+                    <td class="p-2"><input class="preview-input w-full bg-bg-primary border border-border-color rounded px-1" data-index="${index}" data-field="pairPrice" value="${tx.pairPrice || 0}"></td>
+                `;
+                previewBody.appendChild(row);
+            });
+             document.querySelectorAll('.preview-input').forEach(input => {
+                input.addEventListener('change', (e) => {
+                    const { index, field } = e.target.dataset;
+                    extractedTransactions[index][field] = e.target.value;
+                });
+            });
+        }
+        
+        document.getElementById('confirm-import-btn').addEventListener('click', async () => {
+            const transactionsToAdd = extractedTransactions.map(tx => {
+                const fullTx = {
+                    timestamp: tx.timestamp,
+                    exchange: tx.exchange,
+                    locationType: 'ESTRANGEIRA', // Padrão, pode ser ajustado se necessário
+                    asset: tx.asset.toUpperCase(),
+                    operationType: tx.operationType.toUpperCase(),
+                    assetQuantity: parseFloat(String(tx.assetQuantity).replace(',', '.')) || 0,
+                    pairCurrency: tx.pairCurrency.toUpperCase(),
+                    pairPrice: parseFloat(String(tx.pairPrice).replace(',', '.')) || 0,
+                    feeCurrency: '',
+                    feeQuantity: 0,
+                    brlUsdRate: 0, // Necessário buscar ou pedir
+                    averageCostBRL: 0,
+                };
+                
+                // Assumindo que o par não é BRL, precisaria da PTAX. Por enquanto, deixamos 1
+                if(fullTx.pairCurrency !== 'BRL') {
+                    fullTx.brlUsdRate = 5.0; // Valor placeholder
+                }
+
+                const derivedFields = calculateDerivedFields(fullTx);
+                return { ...fullTx, ...derivedFields };
+            });
+
+            if (storageMode === 'firebase') {
+                const batch = writeBatch(db);
+                transactionsToAdd.forEach(tx => {
+                    const newDocRef = doc(collection(db, transactionsCollectionRef.path));
+                    batch.set(newDocRef, tx);
+                });
+                await batch.commit();
+            } else {
+                transactionsToAdd.forEach(tx => {
+                    tx.id = (Date.now() + Math.random()).toString();
+                    transactions.push(tx);
+                });
+                localStorage.setItem('cryptoTransactionsV12_local', JSON.stringify(transactions));
+                applyFilters();
+            }
+            
+            showToast(`${transactionsToAdd.length} transações importadas com sucesso!`, 'success');
+            handleDataChange();
+            closeImportModal();
+        });
+
+
+        // --- Funções do Módulo 2: Apuração Mensal e Anual ---
+
+        function generateMonthlyReport() {
+            const reportMonthInput = document.getElementById('report-month').value;
+            if (!reportMonthInput) {
+                showToast('Por favor, selecione um mês e ano.', 'warning');
+                return;
+            }
+            const [year, month] = reportMonthInput.split('-').map(Number);
+            const { report, ...data } = calculateMonthlyTaxes(year, month);
+            
+            DOMElements.monthlyReportChanges.innerHTML = '';
+            DOMElements.monthlyReportChanges.classList.add('hidden');
+            if (monthlyReportIsOutdated) {
+                const changes = compareReportData(lastMonthlyReportData, data);
+                if (changes) {
+                    DOMElements.monthlyReportChanges.innerHTML = `<div><strong>Relatório atualizado. Alterações:</strong> ${changes}</div>`;
+                    DOMElements.monthlyReportChanges.classList.remove('hidden');
+                    DOMElements.monthlyReportChanges.className = 'report-change-highlight';
+                }
+            }
+            
+            DOMElements.monthlyReportOutput.innerHTML = report; // Use innerHTML
+            lastMonthlyReportData = data;
+            monthlyReportIsOutdated = false;
+            updateReportButtonsState();
+        }
+
+        function calculateMonthlyTaxes(year, month) {
+            const monthTransactions = transactions.filter(t => {
+                const d = new Date(t.timestamp);
+                return d.getFullYear() === year && d.getMonth() + 1 === month;
+            });
+            
+            const nationalSales = monthTransactions.filter(t => t.locationType === 'NACIONAL' && t.operationType === 'VENDA');
+            const totalNationalSalesBRL = nationalSales.reduce((sum, t) => sum + t.totalValueBRL, 0);
+            let nationalProfitBRL = 0;
+            nationalSales.forEach(sale => {
+                const saleProceeds = sale.effectiveCostBRL;
+                const avgCost = sale.averageCostBRL || calculateAverageAcquisitionCost(sale.asset, new Date(sale.timestamp));
+                const costBasis = sale.assetQuantity * avgCost;
+                nationalProfitBRL += saleProceeds - costBasis;
+            });
+            const isNationalDarfExempt = totalNationalSalesBRL <= 35000.00;
+
+            const foreignAlienations = monthTransactions.filter(t => t.locationType === 'ESTRANGEIRA' && ['VENDA', 'PERMUTA_SAIDA'].includes(t.operationType));
+            let foreignProfitOrLossBRL = 0;
+            foreignAlienations.forEach(sale => {
+                const saleProceeds = sale.effectiveCostBRL;
+                const avgCost = sale.averageCostBRL || calculateAverageAcquisitionCost(sale.asset, new Date(sale.timestamp));
+                const costBasis = sale.assetQuantity * avgCost;
+                foreignProfitOrLossBRL += saleProceeds - costBasis;
+            });
+
+            let report = `<div class="mb-4 text-lg font-bold text-white">Relatório de Apuração Fiscal: ${String(month).padStart(2,'0')}/${year}</div>`;
+            
+            const foreignVolume = monthTransactions
+                .filter(t => t.locationType === 'ESTRANGEIRA')
+                .reduce((sum, t) => sum + t.totalValueBRL, 0);
+
+            // IN 1888
+            report += `<div class="report-section"><h3>1. Obrigações Acessórias (IN 1888)</h3>`;
+            report += `<div class="mb-2"><span class="highlight-label">Volume no Exterior:</span> <span class="highlight-value">${formatCurrencyBRL(foreignVolume)}</span></div>`;
+            if (foreignVolume > 30000.00) {
+                 report += `<div class="text-amber-400 font-semibold">⚠️ AÇÃO NECESSÁRIA: Declarar operações (Volume > R$ 30k)</div>`;
+            } else {
+                 report += `<div class="text-green-400">✓ Dispensa de declaração (Volume < R$ 30k)</div>`;
+            }
+            report += `</div>`;
+
+            // DARF Nacional
+            report += `<div class="report-section"><h3>2. DARF (Operações Nacionais)</h3>`;
+            if (!isNationalDarfExempt && nationalProfitBRL > 0) {
+                const darfValue = nationalProfitBRL * 0.15;
+                report += `<div class="mb-2"><span class="highlight-label">Lucro Tributável:</span> ${formatCurrencyBRL(nationalProfitBRL)}</div>`;
+                report += `<div class="text-red-400 font-bold mb-2">DARF A PAGAR: ${formatCurrencyBRL(darfValue)}</div>`;
+                report += `<div class="text-xs text-text-secondary">Código da Receita: 4600 | Vencimento: Último dia útil do mês seguinte.</div>`;
+            } else {
+                report += `<div class="text-green-400">✓ Isento de DARF</div>`;
+                report += `<div class="text-xs text-text-secondary mt-1">Vendas Nacionais: ${formatCurrencyBRL(totalNationalSalesBRL)} (Limite R$ 35k)</div>`;
+            }
+            report += `</div>`;
+
+            // Resultado Exterior
+            report += `<div class="report-section"><h3>3. Resultado no Exterior (Lei 14.754)</h3>`;
+            const resultColor = foreignProfitOrLossBRL >= 0 ? 'text-green-400' : 'text-red-400';
+            report += `<div class="mb-2"><span class="highlight-label">Resultado do Mês:</span> <span class="${resultColor} font-bold">${formatCurrencyBRL(foreignProfitOrLossBRL)}</span></div>`;
+            report += `<div class="text-xs text-text-secondary">O imposto sobre este resultado é apurado anualmente na Declaração de Ajuste Anual (15%).</div>`;
+            report += `</div>`;
+
+            return { report, nationalProfit: nationalProfitBRL, isNationalDarfExempt, foreignProfitOrLoss: foreignProfitOrLossBRL, foreignVolume: foreignVolume };
+        }
+
+        function generateAnnualReport() {
+            const yearInput = document.getElementById('report-year').value;
+            if (!yearInput) {
+                showToast('Por favor, digite um ano.', 'warning');
+                return;
+            }
+            const year = parseInt(yearInput);
+
+            let totalExemptNationalProfit = 0;
+            let totalForeignNetResult = 0;
+
+            for (let month = 1; month <= 12; month++) {
+                const { nationalProfit, isNationalDarfExempt, foreignProfitOrLoss } = calculateMonthlyTaxes(year, month);
+                if (nationalProfit > 0 && isNationalDarfExempt) {
+                    totalExemptNationalProfit += nationalProfit;
+                }
+                totalForeignNetResult += foreignProfitOrLoss;
+            }
+
+            let report = `<div class="mb-4 text-lg font-bold text-white">Relatório Anual IRPF ${year}</div>`;
+            
+            // Exterior
+            report += `<div class="report-section"><h3>1. Renda Variável (Exterior)</h3>`;
+            if (totalForeignNetResult > 0) {
+                const taxDue = totalForeignNetResult * 0.15;
+                report += `<div class="mb-2"><span class="highlight-label">Lucro Anual:</span> <span class="text-green-400 font-bold">${formatCurrencyBRL(totalForeignNetResult)}</span></div>`;
+                report += `<div class="mb-2"><span class="highlight-label">Imposto Devido (15%):</span> <span class="text-red-400 font-bold">${formatCurrencyBRL(taxDue)}</span></div>`;
+                report += `<div class="text-xs text-text-secondary bg-bg-secondary p-2 rounded border border-border-color">📍 <strong>ONDE DECLARAR:</strong> Ficha "Rendimentos de Capital Aplicado no Exterior".</div>`;
+            } else {
+                report += `<div class="mb-2"><span class="highlight-label">Prejuízo Acumulado:</span> <span class="text-red-400">${formatCurrencyBRL(totalForeignNetResult)}</span></div>`;
+                report += `<div class="text-xs text-text-secondary">Pode ser compensado com lucros futuros no exterior.</div>`;
+            }
+            report += `</div>`;
+
+            // Isentos Nacionais
+            report += `<div class="report-section"><h3>2. Rendimentos Isentos (Nacional)</h3>`;
+            report += `<div class="mb-2"><span class="highlight-label">Total Isento:</span> ${formatCurrencyBRL(totalExemptNationalProfit)}</div>`;
+            if (totalExemptNationalProfit > 0) {
+                report += `<div class="text-xs text-text-secondary bg-bg-secondary p-2 rounded border border-border-color">📍 <strong>ONDE DECLARAR:</strong> Ficha "Rendimentos Isentos", Cód 05 (Ganho de capital de pequeno valor).</div>`;
+            }
+            report += `</div>`;
+
+            // Bens e Direitos
+            report += `<div class="report-section"><h3>3. Bens e Direitos (31/12/${year})</h3>`;
+            const uniqueAssets = [...new Set(transactions.map(t => t.asset))];
+            let hasAssets = false;
+            uniqueAssets.forEach(asset => {
+                let quantity = 0;
+                transactions
+                    .filter(t => t.asset === asset && new Date(t.timestamp).getFullYear() <= year)
+                    .forEach(t => {
+                        if (['COMPRA', 'PERMUTA_ENTRADA', 'STAKING_REWARD'].includes(t.operationType)) quantity += t.assetQuantity;
+                        else quantity -= t.assetQuantity;
+                    });
+                
+                if (quantity > 1e-9) {
+                    const acquisitionCost = calculateAverageAcquisitionCost(asset, new Date(`${year}-12-31T23:59:59`)) * quantity;
+                    if (acquisitionCost >= 5000) { // Regra de obrigatoriedade > R$ 5k
+                        hasAssets = true;
+                        report += `<div class="mb-3 pb-3 border-b border-border-color last:border-0">`;
+                        report += `<div class="font-bold text-accent">${asset}</div>`;
+                        report += `<div class="grid grid-cols-2 gap-2 text-sm mt-1">`;
+                        report += `<div><span class="text-text-secondary">Qtd:</span> ${formatDecimal(quantity)}</div>`;
+                        report += `<div><span class="text-text-secondary">Custo:</span> ${formatCurrencyBRL(acquisitionCost)}</div>`;
+                        report += `</div>`;
+                        report += `<div class="text-[10px] text-text-secondary mt-1">📍 Ficha "Bens e Direitos", Grupo 08.</div>`;
+                        report += `</div>`;
+                    }
+                }
+            });
+            if (!hasAssets) {
+                report += `<div class="text-sm text-text-secondary">Nenhum ativo com valor > R$ 5.000,00 para declarar.</div>`;
+            }
+            report += `</div>`;
+
+            DOMElements.annualReportOutput.innerHTML = report; // Use innerHTML
+            annualReportIsOutdated = false;
+            updateReportButtonsState();
+        }
+
+        function compareReportData(oldData, newData) {
+            const changes = [];
+            const keyMap = {
+                nationalProfit: "Lucro Nacional",
+                foreignProfitOrLoss: "Resultado no Exterior",
+                foreignVolume: "Volume no Exterior"
+            }
+            for (const key in newData) {
+                if (key !== 'report' && oldData[key] !== newData[key]) {
+                     changes.push(keyMap[key] || key);
+                }
+            }
+            return changes.length > 0 ? changes.join(', ') : null;
+        }
+
+        // --- Funções do Módulo 3: Dashboard ---
+        async function renderDashboard() {
+            const tableBody = document.getElementById('dashboard-unified-table-body');
+            tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-4">Calculando e buscando preços...</td></tr>`;
+            
+            const portfolio = {};
+            const uniqueAssets = [...new Set(transactions.map(t => t.asset).filter(a => a))];
+            const currentPrices = await fetchCurrentPrices(uniqueAssets);
+
+            for (const asset of uniqueAssets) {
+                let currentQuantity = transactions
+                    .filter(t => t.asset === asset)
+                    .reduce((sum, t) => sum + (['COMPRA', 'PERMUTA_ENTRADA', 'STAKING_REWARD'].includes(t.operationType) ? t.assetQuantity : -t.assetQuantity), 0);
+
+                if (currentQuantity > 1e-9) {
+                    const averageCostBRL = calculateAverageAcquisitionCost(asset, new Date());
+                    const currentPriceBRL = currentPrices[asset] || 0;
+                    const currentPositionBRL = currentQuantity * currentPriceBRL;
+                    const unrealizedPL = currentPositionBRL - (currentQuantity * averageCostBRL);
+                    
+                    portfolio[asset] = { currentQuantity, averageCostBRL, currentPositionBRL, unrealizedPL, currentPriceBRL };
+                }
+            }
+            
+            const totalEquity = Object.values(portfolio).reduce((sum, asset) => sum + asset.currentPositionBRL, 0);
+            const totalInvested = Object.values(portfolio).reduce((sum, asset) => sum + (asset.currentQuantity * asset.averageCostBRL), 0);
+            const unrealizedPL = totalEquity - totalInvested;
+            const assetCount = Object.keys(portfolio).length;
+
+            document.getElementById('summary-total-equity').textContent = formatCurrencyBRL(totalEquity);
+            document.getElementById('summary-total-invested').textContent = formatCurrencyBRL(totalInvested);
+            document.getElementById('summary-unrealized-pl').textContent = formatCurrencyBRL(unrealizedPL);
+            document.getElementById('summary-asset-count').textContent = assetCount;
+            
+            const plColorGlobal = unrealizedPL >= 0 ? 'text-green-400' : 'text-red-400';
+            document.getElementById('summary-unrealized-pl').className = `text-2xl font-bold ${plColorGlobal}`;
+
+
+            tableBody.innerHTML = '';
+
+            if (Object.keys(portfolio).length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="7" class="text-center py-8 text-text-secondary">Nenhum ativo na carteira.</td></tr>`;
+                renderPortfolioChart({});
+                return;
+            }
+
+            const sortedPortfolio = Object.entries(portfolio).sort(([,a],[,b]) => b.currentPositionBRL - a.currentPositionBRL);
+
+            for (const [asset, data] of sortedPortfolio) {
+                const percentage = totalEquity > 0 ? (data.currentPositionBRL / totalEquity) * 100 : 0;
+                const plColor = data.unrealizedPL >= 0 ? 'text-green-400' : 'text-red-400';
+                
+                tableBody.innerHTML += `
+                    <tr class="hover:bg-white/5 transition-colors border-b border-border-color/50 last:border-0">
+                        <td class="px-3 py-3 font-semibold text-text-primary">${asset}</td>
+                        <td class="px-3 py-3 text-right font-mono-report">${formatDecimal(data.currentQuantity)}</td>
+                        <td class="px-3 py-3 text-right font-mono-report">${formatCurrencyBRL(data.averageCostBRL)}</td>
+                        <td class="px-3 py-3 text-right font-mono-report">${formatCurrencyBRL(data.currentPriceBRL)}</td>
+                        <td class="px-3 py-3 text-right font-semibold text-text-primary font-mono-report">${formatCurrencyBRL(data.currentPositionBRL)}</td>
+                        <td class="px-3 py-3 text-right font-semibold ${plColor} font-mono-report">${formatCurrencyBRL(data.unrealizedPL)}</td>
+                        <td class="px-3 py-3 text-right">${percentage.toFixed(2)}%</td>
+                    </tr>`;
+            }
+            renderPortfolioChart(portfolio);
+        }
+
+        function renderPortfolioChart(portfolio) {
+            const ctx = document.getElementById('portfolio-chart').getContext('2d');
+            if (portfolioChartInstance) portfolioChartInstance.destroy();
+
+            const labels = Object.keys(portfolio);
+            const data = Object.values(portfolio).map(p => p.currentPositionBRL);
+            
+            const backgroundColors = labels.map((_, i) => ['#f59e0b', '#10b981', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#6366f1'][i % 7]);
+
+            portfolioChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderColor: '#161B22',
+                        borderWidth: 4,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { 
+                            display: false 
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.chart.data.datasets[0].data.reduce((a, b) => a + b, 0);
+                                    const percentage = total > 0 ? (context.parsed / total * 100).toFixed(2) : 0;
+                                    return `${context.label}: ${formatCurrencyBRL(context.parsed)} (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        // --- Funções Auxiliares de UI ---
+        
+        function togglePtaxField(prefix = '') {
+            const pairCurrencyInput = document.getElementById(`${prefix}pairCurrency`);
+            const ptaxInput = document.getElementById(`${prefix}brlUsdRate`);
+            const isBRL = pairCurrencyInput.value.toUpperCase() === 'BRL';
+            ptaxInput.disabled = isBRL;
+            ptaxInput.required = !isBRL;
+            if (isBRL) ptaxInput.value = '1,0000';
+            else if (ptaxInput.value === '1,0000') ptaxInput.value = '';
+        }
+
+        function toggleAverageCostField(prefix = '') {
+            const operationType = document.getElementById(`${prefix}operationType`).value;
+            const avgCostWrapper = document.getElementById(`${prefix}average-cost-b-r-l-wrapper`);
+            const avgCostInput = document.getElementById(`${prefix}averageCostBRL`);
+            const label = avgCostWrapper.querySelector('label');
+            const isAlienation = ['VENDA', 'PERMUTA_SAIDA'].includes(operationType);
+
+            if (isAlienation) {
+                avgCostWrapper.classList.remove('hidden');
+                avgCostInput.disabled = false;
+                avgCostInput.required = false; 
+                avgCostInput.placeholder = "Opcional (auto-calculado se vazio)";
+                label.innerHTML = 'Preço Médio (Opcional)';
+                avgCostInput.value = ''; 
+            } else {
+                avgCostWrapper.classList.add('hidden');
+                avgCostInput.disabled = true;
+                avgCostInput.required = false;
+                avgCostInput.value = '';
+                label.innerHTML = 'Preço Médio (Auto)';
+            }
+        }
+
+        function updateCurrencyPrefix(prefix = '') {
+            const pairCurrencyInput = document.getElementById(`${prefix}pairCurrency`);
+            const symbolSpan = document.getElementById(`${prefix}pair-price-symbol`);
+            symbolSpan.textContent = pairCurrencyInput.value.toUpperCase() === 'BRL' ? 'R$' : '$';
+        }
+
+        // --- Funções de Copy e API ---
+        
+        // Função para copiar texto do relatório
+        function copyReportText(elementId) {
+            const reportContent = document.getElementById(elementId).innerText;
+            
+            // Create a temporary textarea element to hold the text
+            const textarea = document.createElement('textarea');
+            textarea.value = reportContent;
+            textarea.style.position = 'fixed'; // Avoid scrolling to bottom
+            textarea.style.opacity = '0';
+            document.body.appendChild(textarea);
+            
+            textarea.select();
+            
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) {
+                    showToast("Relatório copiado para a área de transferência!", "success");
+                } else {
+                    showToast("Falha ao copiar o relatório.", "error");
+                }
+            } catch (err) {
+                console.error("Erro ao copiar:", err);
+                showToast("Falha ao copiar o relatório.", "error");
+            } finally {
+                document.body.removeChild(textarea);
+            }
+        }
+        
+        document.getElementById('copy-monthly-report-btn').addEventListener('click', () => copyReportText('report-output'));
+        document.getElementById('copy-annual-report-btn').addEventListener('click', () => copyReportText('annual-report-output'));
+
+
+        function closeAiModal() { document.getElementById('ai-analysis-modal').classList.add('hidden'); }
+
+        async function analyzePortfolio() {
+             // REMOVED: Check for storageMode === 'local'. AI now runs regardless of DB connection.
+             // If there is internet but no Firebase config, it should still try to run.
+             // However, if there is NO internet, the fetch to Gemini API will fail and be caught in catch block.
+
+            const analyzeBtn = document.getElementById('analyze-btn');
+            const btnText = document.getElementById('analyze-btn-text');
+            const spinner = document.getElementById('analyze-spinner');
+            const aiModal = document.getElementById('ai-analysis-modal');
+            const aiContent = document.getElementById('ai-analysis-content');
+
+            analyzeBtn.disabled = true;
+            btnText.textContent = 'Analisando...';
+            spinner.classList.remove('hidden');
+            aiContent.textContent = 'Aguarde enquanto a IA analisa sua carteira...';
+            aiModal.classList.remove('hidden');
+
+            try {
+                const portfolio = {};
+                const uniqueAssets = [...new Set(transactions.map(t => t.asset))];
+                const currentPrices = await fetchCurrentPrices(uniqueAssets);
+
+                for (const asset of uniqueAssets) {
+                    let currentQuantity = transactions.filter(t => t.asset === asset).reduce((sum, t) => sum + (['COMPRA', 'PERMUTA_ENTRADA', 'STAKING_REWARD'].includes(t.operationType) ? t.assetQuantity : -t.assetQuantity), 0);
+                    if (currentQuantity > 1e-9) {
+                        const currentPriceBRL = currentPrices[asset] || 0;
+                        portfolio[asset] = { currentPositionBRL: currentQuantity * currentPriceBRL };
+                    }
+                }
+                
+                const totalPortfolioValue = Object.values(portfolio).reduce((sum, asset) => sum + asset.currentPositionBRL, 0);
+
+                if (totalPortfolioValue === 0) {
+                    aiContent.textContent = 'Não há ativos na carteira para analisar.';
+                    return;
+                }
+
+                const portfolioSummary = Object.entries(portfolio).map(([asset, data]) => `- ${asset}: ${(data.currentPositionBRL / totalPortfolioValue * 100).toFixed(2)}% (${formatCurrencyBRL(data.currentPositionBRL)})`).join('\n');
+                
+                const systemPrompt = `Você é um analista financeiro de criptomoedas. Analise a carteira fornecida e retorne insights CURTOS e OBJETIVOS (máx 3 linhas por ponto).
+                Use bullet points e negrito.
+                **Análise:**
+                - **Diversificação:** Nível e breve comentário.
+                - **Concentração:** Ativo principal e % (risco?).
+                - **Pontos de Atenção:** 1 risco principal.
+                - **Conclusão:** Perfil (Conservador/Moderado/Arrojado).`;
+                
+                const userQuery = `Carteira:\n${portfolioSummary}`;
+                
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) throw new Error(`Erro API: ${response.status}`);
+                
+                const result = await response.json();
+                const analysisText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (analysisText) {
+                    aiContent.textContent = analysisText;
+                } else {
+                    throw new Error("Resposta vazia.");
+                }
+
+            } catch (error) {
+                console.error("Erro IA:", error);
+                aiContent.textContent = "Erro na análise. Verifique sua conexão com a nuvem.";
+            } finally {
+                analyzeBtn.disabled = false;
+                btnText.textContent = '✨ Analisar com IA';
+                spinner.classList.add('hidden');
+            }
+        }
+        
+        // --- Event Listeners & Inicialização ---
+        function setupEventListeners() {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => changeTab(btn.dataset.tab)));
+            document.getElementById('transaction-form').addEventListener('submit', handleAddTransaction);
+            document.getElementById('edit-transaction-form').addEventListener('submit', handleEditTransaction);
+            document.getElementById('cancel-edit-btn').addEventListener('click', closeEditModal);
+            document.getElementById('import-btn').addEventListener('click', openImportModal);
+            document.getElementById('cancel-import-btn').addEventListener('click', closeImportModal);
+            
+            DOMElements.updateMonthlyReportBtn.addEventListener('click', generateMonthlyReport);
+            DOMElements.updateAnnualReportBtn.addEventListener('click', generateAnnualReport);
+            document.getElementById('generate-monthly-report-btn').addEventListener('click', generateMonthlyReport);
+            document.getElementById('generate-annual-report-btn').addEventListener('click', generateAnnualReport);
+            
+            ['timestamp', 'edit-timestamp'].forEach(id => {
+                const input = document.getElementById(id);
+                if(input) {
+                    input.addEventListener('change', () => input.blur());
+                }
+            });
+
+            document.getElementById('analyze-btn').addEventListener('click', analyzePortfolio);
+            document.getElementById('close-ai-modal-btn').addEventListener('click', closeAiModal);
+            DOMElements.genericCancelBtn.addEventListener('click', closeConfirmationModal);
+
+            DOMElements.transactionsTableBody.addEventListener('click', (e) => {
+                const editBtn = e.target.closest('.edit-btn');
+                const deleteBtn = e.target.closest('.delete-btn');
+                const checkbox = e.target.closest('.transaction-checkbox');
+
+                if (editBtn) openEditModal(editBtn.dataset.id);
+                else if (deleteBtn) promptDelete(deleteBtn.dataset.id);
+                else if (checkbox) {
+                    const id = checkbox.dataset.id;
+                    if (checkbox.checked) selectedTransactions.add(id);
+                    else selectedTransactions.delete(id);
+                    updateBatchDeleteButton();
+                }
+            });
+
+            document.getElementById('select-all-checkbox').addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                document.querySelectorAll('.transaction-checkbox').forEach(checkbox => {
+                    checkbox.checked = isChecked;
+                    const id = checkbox.dataset.id;
+                    if (isChecked) selectedTransactions.add(id);
+                    else selectedTransactions.delete(id);
+                });
+                updateBatchDeleteButton();
+            });
+            
+            document.getElementById('filter-asset').addEventListener('input', applyFilters);
+            document.getElementById('filter-operation').addEventListener('change', applyFilters);
+            document.getElementById('clear-filters-btn').addEventListener('click', () => {
+                document.getElementById('filter-asset').value = '';
+                document.getElementById('filter-operation').value = '';
+                applyFilters();
+            });
+
+            document.getElementById('batch-delete-btn').addEventListener('click', handleBatchDelete);
+            document.getElementById('export-btn').addEventListener('click', openExportModal);
+            document.getElementById('cancel-export-btn').addEventListener('click', closeExportModal);
+            document.getElementById('export-csv-btn').addEventListener('click', () => exportData('csv'));
+            document.getElementById('export-xlsx-btn').addEventListener('click', () => exportData('xlsx'));
+            document.getElementById('export-pdf-btn').addEventListener('click', () => exportData('pdf'));
+            document.querySelectorAll('.period-btn').forEach(btn => btn.addEventListener('click', () => setExportPeriod(btn.dataset.period)));
+            document.getElementById('export-report-type').addEventListener('change', (e) => {
+                document.getElementById('export-period-selector').style.display = e.target.value === 'transactions' ? 'block' : 'none';
+            });
+            
+            ['operationType', 'asset'].forEach(id => {
+                 document.getElementById(id).addEventListener('change', () => toggleAverageCostField());
+            });
+            ['edit-operationType', 'edit-asset'].forEach(id => {
+                 document.getElementById(id).addEventListener('change', () => toggleAverageCostField('edit-'));
+            });
+
+            ['pairCurrency', 'edit-pairCurrency'].forEach(id => {
+                const prefix = id.startsWith('edit-') ? 'edit-' : '';
+                document.getElementById(id).addEventListener('input', () => {
+                    updateCurrencyPrefix(prefix);
+                    togglePtaxField(prefix);
+                });
+            });
+        }
+        
+        // --- Funções de Exportação ---
+         function openExportModal() {
+            document.getElementById('export-modal').classList.remove('hidden');
+            setExportPeriod('all');
+        }
+        function closeExportModal() {
+            document.getElementById('export-modal').classList.add('hidden');
+        }
+        function setExportPeriod(period) {
+            const endDate = new Date();
+            const startDate = new Date();
+            if (period === '1m') startDate.setMonth(endDate.getMonth() - 1);
+            else if (period === '6m') startDate.setMonth(endDate.getMonth() - 6);
+            else if (period === '1y') startDate.setFullYear(endDate.getFullYear() - 1);
+            else if (period === 'all' && transactions.length > 0) {
+                startDate.setTime(Math.min(...transactions.map(t => new Date(t.timestamp).getTime())));
+            }
+            document.getElementById('export-start-date').valueAsDate = startDate;
+            document.getElementById('export-end-date').valueAsDate = endDate;
+        }
+        async function exportData(format) {
+            const reportType = document.getElementById('export-report-type').value;
+            let data, headers, filename;
+            const startDate = new Date(document.getElementById('export-start-date').value);
+            const endDate = new Date(document.getElementById('export-end-date').value);
+            endDate.setHours(23, 59, 59, 999);
+            const periodStr = `Período: ${startDate.toLocaleDateString('pt-BR')} a ${endDate.toLocaleDateString('pt-BR')}`;
+            if (reportType === 'transactions') {
+                data = transactions.filter(t => {
+                    const tDate = new Date(t.timestamp);
+                    return tDate >= startDate && tDate <= endDate;
+                }).map(t => ({
+                    'Data': new Date(t.timestamp).toLocaleString('pt-BR'),
+                    'Exchange': t.exchange,
+                    'Local': t.locationType,
+                    'Ativo': t.asset,
+                    'Operação': t.operationType,
+                    'Quantidade': t.assetQuantity,
+                    'Preço Unitário': t.pairPrice,
+                    'Moeda Par': t.pairCurrency,
+                    'Valor Operação BRL': parseFloat(t.effectiveCostBRL.toFixed(2))
+                }));
+                headers = ['Data', 'Exchange', 'Local', 'Ativo', 'Operação', 'Quantidade', 'Preço Unitário', 'Moeda Par', 'Valor Operação BRL'];
+                filename = 'historico_transacoes';
+            } else {
+                 const portfolio = {};
+                const uniqueAssets = [...new Set(transactions.map(t => t.asset))];
+                const currentPrices = await fetchCurrentPrices(uniqueAssets);
+                for (const asset of uniqueAssets) {
+                    let quantity = transactions.filter(t => t.asset === asset).reduce((sum, t) => sum + (['COMPRA', 'PERMUTA_ENTRADA', 'STAKING_REWARD'].includes(t.operationType) ? t.assetQuantity : -t.assetQuantity), 0);
+                    if (quantity > 1e-9) {
+                        const avgCost = calculateAverageAcquisitionCost(asset, new Date());
+                        const price = currentPrices[asset] || 0;
+                        portfolio[asset] = { quantity, avgCost, invested: quantity * avgCost, price, position: quantity * price };
+                    }
+                }
+                data = Object.entries(portfolio).map(([asset, d]) => ({
+                    'Ativo': asset,
+                    'Quantidade': d.quantity,
+                    'Preço Médio BRL': parseFloat(d.avgCost.toFixed(2)),
+                    'Total Investido BRL': parseFloat(d.invested.toFixed(2)),
+                    'Preço Atual BRL': parseFloat(d.price.toFixed(2)),
+                    'Posição Atual BRL': parseFloat(d.position.toFixed(2))
+                }));
+                headers = ['Ativo', 'Quantidade', 'Preço Médio BRL', 'Total Investido BRL', 'Preço Atual BRL', 'Posição Atual BRL'];
+                filename = 'posicao_custodia';
+            }
+            if (data.length === 0) {
+                showToast("Nenhum dado para exportar.", "warning");
+                return;
+            }
+            if (format === 'csv') exportToCSV(data, headers, filename, periodStr);
+            if (format === 'xlsx') exportToXLSX(data, headers, filename, periodStr);
+            if (format === 'pdf') exportToPDF(data, headers, filename, periodStr);
+        }
+        function exportToCSV(data, headers, filename, periodStr) {
+            const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + `Cockpit Cripto\n${periodStr}\n\n` + [headers.join(','), ...data.map(row => headers.map(header => `"${row[header]}"`).join(','))].join('\n');
+            const link = document.createElement("a");
+            link.setAttribute("href", encodeURI(csvContent));
+            link.setAttribute("download", `${filename}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+        function exportToXLSX(data, headers, filename, periodStr) {
+            const ws = XLSX.utils.json_to_sheet([{"A": "Cockpit Cripto"}, {"A": periodStr}, {}], { skipHeader: true });
+            XLSX.utils.sheet_add_aoa(ws, [headers], { origin: "A4" });
+            XLSX.utils.sheet_add_json(ws, data, { origin: "A5", skipHeader: true });
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Relatorio");
+            XLSX.writeFile(wb, `${filename}.xlsx`);
+        }
+        function exportToPDF(data, headers, filename, periodStr) {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            doc.setFontSize(18);
+            doc.text("Cockpit Cripto", 14, 22);
+            doc.setFontSize(11);
+            doc.text(periodStr, 14, 30);
+            doc.autoTable({ startY: 35, head: [headers], body: data.map(row => headers.map(header => String(row[header] || ''))) });
+            doc.save(`${filename}.pdf`);
+        }
+
+        // --- Inicialização da Aplicação ---
+        async function initialize() {
+            setupEventListeners();
+            
+            try {
+                const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+                const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+                if (!firebaseConfig.apiKey) throw new Error("Configuração do Firebase não encontrada.");
+
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+                setLogLevel('error');
+
+                onAuthStateChanged(auth, user => {
+                    if (user && !isAuthReady) {
+                        isAuthReady = true;
+                        userId = user.uid;
+                        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                        const dbPath = `artifacts/${appId}/users/${userId}/transactions`;
+                        transactionsCollectionRef = collection(db, dbPath);
+
+                        if (unsubscribeFromTransactions) unsubscribeFromTransactions();
+                        
+                        unsubscribeFromTransactions = onSnapshot(transactionsCollectionRef, (snapshot) => {
+                            transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                            applyFilters();
+                            if (currentTab === 'dashboard') renderDashboard();
+                            handleDataChange();
+                        }, (error) => {
+                            console.error("Erro no listener do Firestore:", error);
+                            showToast("Erro de conexão em tempo real.", "error");
+                        });
+
+                        DOMElements.addTransactionBtn.disabled = false;
+                        DOMElements.addTransactionBtnText.textContent = 'Adicionar Transação';
+                        DOMElements.connectionStatus.textContent = 'Status: Conectado à nuvem.';
+                        DOMElements.connectionStatus.classList.replace('text-text-secondary', 'text-green-500');
+                    }
+                });
+
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+            } catch (error) {
+                console.warn("Aviso: Falha ao conectar no Firebase. Usando armazenamento local.", error);
+                initializeLocalMode();
+            }
+            
+            const today = new Date();
+            const month = (today.getMonth() + 1).toString().padStart(2, '0');
+            const year = today.getFullYear();
+            document.getElementById('report-month').value = `${year}-${month}`;
+            document.getElementById('report-year').value = year;
+            
+            togglePtaxField();
+            toggleAverageCostField();
+            updateCurrencyPrefix();
+        }
+
+        function initializeLocalMode() {
+            storageMode = 'local';
+            DOMElements.connectionStatus.textContent = 'Modo Offline: Dados salvos localmente.';
+            DOMElements.connectionStatus.classList.replace('text-text-secondary', 'text-yellow-500');
+            showToast("Sem conexão com a nuvem. Operando em modo offline.", "warning");
+            transactions = JSON.parse(localStorage.getItem('cryptoTransactionsV12_local')) || [];
+            DOMElements.addTransactionBtn.disabled = false;
+            DOMElements.addTransactionBtnText.textContent = 'Adicionar Transação';
+            renderTransactionsTable();
+        }
+
+        function applyFilters() {
+            const assetFilter = document.getElementById('filter-asset').value.toUpperCase().trim();
+            const operationFilter = document.getElementById('filter-operation').value;
+            
+            const filters = {
+                asset: assetFilter,
+                operation: operationFilter,
+            };
+            
+            renderTransactionsTable(filters);
+        }
+
+        document.addEventListener('DOMContentLoaded', initialize);
+    </script>
+</body>
+</html>
