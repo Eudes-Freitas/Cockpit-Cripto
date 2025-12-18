@@ -2214,9 +2214,73 @@ function setupTransactionsListener() {
         }
 
         document.addEventListener('DOMContentLoaded', initialize);
+        // Corrige importação IA (PDF/Imagens)
+const importFileAI = document.getElementById('import-file-ai');
+importFileAI.addEventListener('change', async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  // Mostrar loader (já no seu código)
+  document.getElementById('import-loader').classList.remove('hidden');
+
+  try {
+    let extractedText = '';
+
+    if (file.type === 'application/pdf') {
+      // Processar PDF
+      const pdf = await pdfjsLib.getDocument(URL.createObjectURL(file)).promise;
+      for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+        const page = await pdf.getPage(pageNum);
+        const content = await page.getTextContent();
+        extractedText += content.items.map(item => item.str).join(' ') + '\n';
+      }
+    } else {
+      // Processar Imagem com Tesseract
+      const { createWorker } = Tesseract;
+      const worker = await createWorker('eng+por');  // Suporte a inglês e português
+      const { data: { text } } = await worker.recognize(file);
+      extractedText = text;
+      await worker.terminate();
+    }
+
+    // Converter texto em transações (lógica simples; adapte se precisar)
+    extractedTransactions = parseTextToTransactions(extractedText);
+
+    // Mostrar preview (adicione chamadas para funções do seu código, como renderImportPreview() se existir)
+    // Exemplo: renderImportPreview(extractedTransactions);
+    document.getElementById('import-step-3').classList.remove('hidden');
+    showToast('Arquivo processado com sucesso!', 'success');
+  } catch (error) {
+    console.error('Erro no processamento:', error);
+    showToast('Erro ao processar PDF/Imagem. Tente outro arquivo.', 'error');
+  } finally {
+    document.getElementById('import-loader').classList.add('hidden');
+  }
+});
+
+// Função simples para extrair transações do texto
+function parseTextToTransactions(text) {
+  const lines = text.split('\n');
+  return lines.map(line => {
+    // Exemplo: Procura padrões como "Data: 2023-01-01 Ativo: BTC Operação: COMPRA Qtd: 0.5 Preço: 50000"
+    const match = line.match(/Data:\s*(\d{4}-\d{2}-\d{2}) Ativo:\s*(\w+) Operação:\s*(\w+) Qtd:\s*(\d+\.?\d*) Preço:\s*(\d+\.?\d*)/i);
+    if (match) {
+      return {
+        timestamp: match[1],
+        asset: match[2],
+        operationType: match[3],
+        assetQuantity: match[4],
+        pairPrice: match[5]
+      };
+    }
+    return null;
+  }).filter(Boolean);
+}
+
     </script>
 </body>
 
 </html>
+
 
 
