@@ -619,6 +619,50 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, onSnapshot, addDoc, doc, updateDoc, deleteDoc, writeBatch, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+// Configuração do Firebase (cole aqui as credenciais que você copiou do Firebase Console)
+const firebaseConfig = {
+  // Cole o seu firebaseConfig aqui! Exemplo:
+  // apiKey: "AIza...sua-chave",
+  // authDomain: "seu-projeto.firebaseapp.com",
+  // projectId: "seu-projeto",
+  // storageBucket: "seu-projeto.appspot.com",
+  // messagingSenderId: "123456789",
+  // appId: "1:123456789:web:abcdef123456"
+};
+
+const app = initializeApp(firebaseConfig);
+auth = getAuth(app);
+db = getFirestore(app);
+
+// Autenticação automática (para conectar ao banco)
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    userId = user.uid;
+    transactionsCollectionRef = collection(db, `users/${userId}/transactions`);
+    setupTransactionsListener();  // Escuta mudanças no banco
+    document.getElementById('connection-status').textContent = 'Conectado!';
+    document.getElementById('connection-status').classList.add('text-green-500');
+    document.getElementById('add-transaction-btn').disabled = false;
+  } else {
+    signInAnonymously(auth).catch(error => {
+      console.error('Erro na autenticação:', error);
+      showToast('Erro ao conectar. Tente recarregar.', 'error');
+    });
+  }
+});
+
+// Função para escutar transações do banco (adicione isso)
+function setupTransactionsListener() {
+  if (unsubscribeFromTransactions) unsubscribeFromTransactions();
+  unsubscribeFromTransactions = onSnapshot(transactionsCollectionRef, (snapshot) => {
+    transactions = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    // Atualize a tabela (adicione chamadas para funções existentes no seu código, como renderTransactions() se existir)
+    // Exemplo: renderTransactions();
+  }, (error) => {
+    console.error('Erro ao carregar dados:', error);
+    showToast('Erro na conexão com o banco', 'error');
+  });
+}
 
         // --- Estado da Aplicação e Armazenamento ---
         let transactions = [];
@@ -2174,4 +2218,5 @@
 </body>
 
 </html>
+
 
